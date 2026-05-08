@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 CK3 Version Analyzer - 自动化分析 Crusader Kings III 版本差异
+增强版：深度代码对比分析
 
 Usage:
     python ck3_analyzer.py analyze [版本A] [版本B] [选项]
@@ -9,6 +10,8 @@ Options:
     --output-dir DIR      输出目录 (默认: diff_output)
     --author NAME         报告作者 (默认: XenoAmess)
     --model MODEL         分析模型 (默认: MiniMax-M2.7)
+    --max-deep-files N    深度分析的最大文件数 (默认: 20)
+    --no-deep-analysis    禁用深度代码分析
 """
 
 import os
@@ -17,10 +20,11 @@ import json
 import hashlib
 import argparse
 import re
+import difflib
 from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass, field, asdict
-from typing import Optional, List, Dict, Set
+from typing import Optional, List, Dict, Set, Tuple
 from collections import defaultdict
 
 # Windows 编码修复
@@ -31,13 +35,109 @@ if sys.platform == "win32":
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 
+# PDS脚本关键词及语义分类
+PDS_KEYWORDS = {
+    "game_mechanics": [
+        "holder", "succession_laws", "government", "add_title_law", "remove_title_law",
+        "add_realm_law", "change_government", "has_government", "succession_law",
+        "single_heir", "partition", "acclamation", "elector", "claim"
+    ],
+    "traits": [
+        "add_trait", "remove_trait", "has_trait", "trait", "give_trait",
+        "set_trait_flag", "has_trait_with_flag", "num_traits"
+    ],
+    "triggers": [
+        "trigger", "limit", "condition", "is_shown", "is_valid", "can_start",
+        "any_", "all_", "exists", "NOT", "OR", "AND", "NOR", "NAND"
+    ],
+    "effects": [
+        "effect", "add", "set", "remove", "change", "create", "destroy",
+        "add_opinion", "add_modifier", "set_variable", "save_scope_as"
+    ],
+    "relations": [
+        "relation", "opinion", "has_relation_", "is_", "any_", "target =",
+        "friend", "rival", "lover", "enemy", "vassal", "liege"
+    ],
+    "pregnancy": [
+        "pregnancy", "fertility", "child", "heir", "concubine", "marriage",
+        "birth", "pregnant", "is_pregnant", "any_child"
+    ],
+    "ai_behavior": [
+        "ai_will_do", "ai_potential", "ai_frequency", "ai_target", "ai_recipient",
+        "ai_", "factor", "modifier", "base =", "add ="
+    ],
+    "events": [
+        "trigger_event", "character_event", "diarchy_event", "story_event",
+        "on_action", "on_accept", "on_decline", "on_send", "namespace"
+    ],
+    "interactions": [
+        "interaction", "offer", "accept", "decline", "send_option",
+        "is_shown", "is_valid", "cost", "category", "icon"
+    ],
+    "values": [
+        "value", "opinion_value", "modifier", "add =", "multiply =",
+        "high_", "medium_", "low_", "positive_", "negative_"
+    ]
+}
+
+CHANGE_TYPE_KEYWORDS = {
+    "major": [
+        "succession_law", "government", "add_title_law", "remove_title_law",
+        "holder", "dynasty", "inheritance", "succession"
+    ],
+    "feature": [
+        "trigger_event", "new_event", "add_trait", "new_trait",
+        "decision", "new_decision", "interaction", "new_interaction"
+    ],
+    "bugfix": [
+        "any_", "empty", "null", "none", "exists", "NOT", "limit",
+        "scope:", "trigger", "fix", "correct", "error"
+    ],
+    "balance": [
+        "ai_will_do", "factor", "modifier", "add =", "multiply =",
+        "base =", "value", "weight"
+    ],
+    "localization": [
+        "l_english", "l_simp_chinese", "l_french", "l_german", "l_",
+        "_l_", "localization"
+    ],
+    "gui": [
+        "gui", "window", "interface", "icon", "texture", "dds", "sprite"
+    ]
+}
+
+
 @dataclass
 class FileInfo:
     path: str
     size: int
     md5: str
     is_binary: bool = False
-    line_count: int = 0  # 文本文件的行数
+    line_count: int = 0
+
+
+@dataclass
+class DiffHunk:
+    old_start: int
+    old_count: int
+    new_start: int
+    new_count: int
+    lines_added: List[str] = field(default_factory=list)
+    lines_removed: List[str] = field(default_factory=list)
+    lines_context: List[Tuple[str, str]] = field(default_factory=list)
+
+
+@dataclass
+class FileDeepDiff:
+    path: str
+    status: str
+    change_type: str
+    semantic_category: str
+    game_impact: str
+    hunks: List[DiffHunk] = field(default_factory=list)
+    summary: str = ""
+    old_lines_count: int = 0
+    new_lines_count: int = 0
 
 
 @dataclass
@@ -47,6 +147,7 @@ class DiffReport:
     timestamp: str
     summary: dict = field(default_factory=dict)
     file_diffs: list = field(default_factory=list)
+    deep_diffs: List[FileDeepDiff] = field(default_factory=list)
 
 
 def calculate_md5(filepath: str) -> str:
@@ -64,35 +165,11 @@ def calculate_md5(filepath: str) -> str:
 def is_binary_file(filepath: str) -> bool:
     """判断是否为二进制文件"""
     binary_extensions = {
-        ".dll",
-        ".exe",
-        ".dylib",
-        ".so",
-        ".dll.manifest",
-        ".dds",
-        ".tga",
-        ".png",
-        ".jpg",
-        ".jpeg",
-        ".gif",
-        ".bmp",
-        ".tiff",
-        ".pdf",
-        ".zip",
-        ".tar",
-        ".gz",
-        ".rar",
-        ".7z",
-        ".wav",
-        ".mp3",
-        ".ogg",
-        ".flac",
-        ".aac",
-        ".ttf",
-        ".otf",
-        ".woff",
-        ".woff2",
-        ".bank",
+        ".dll", ".exe", ".dylib", ".so", ".dll.manifest",
+        ".dds", ".tga", ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff",
+        ".pdf", ".zip", ".tar", ".gz", ".rar", ".7z",
+        ".wav", ".mp3", ".ogg", ".flac", ".aac",
+        ".ttf", ".otf", ".woff", ".woff2", ".bank",
     }
     _, ext = os.path.splitext(filepath)
     return ext.lower() in binary_extensions
@@ -105,6 +182,15 @@ def count_lines(filepath: str) -> int:
             return sum(1 for _ in f)
     except Exception:
         return 0
+
+
+def read_file_lines(filepath: str) -> List[str]:
+    """读取文件所有行"""
+    try:
+        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+            return f.readlines()
+    except Exception:
+        return []
 
 
 def scan_directory(base_path: str) -> dict:
@@ -138,15 +224,159 @@ def scan_directory(base_path: str) -> dict:
     return files
 
 
+def compute_line_diff(old_lines: List[str], new_lines: List[str], context: int = 3) -> List[DiffHunk]:
+    """计算两文件版本的行级差异"""
+    hunks = []
+    diff = difflib.unified_diff(old_lines, new_lines, n=context)
+
+    current_hunk = None
+    for line in diff:
+        if line.startswith('@@'):
+            if current_hunk:
+                hunks.append(current_hunk)
+
+            match = re.match(r'@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@', line)
+            if match:
+                old_start = int(match.group(1))
+                old_count = int(match.group(2)) if match.group(2) else 1
+                new_start = int(match.group(3))
+                new_count = int(match.group(4)) if match.group(4) else 1
+                current_hunk = DiffHunk(
+                    old_start=old_start,
+                    old_count=old_count,
+                    new_start=new_start,
+                    new_count=new_count
+                )
+        elif line.startswith('+') and not line.startswith('+++'):
+            if current_hunk:
+                current_hunk.lines_added.append(line[1:].rstrip())
+        elif line.startswith('-') and not line.startswith('---'):
+            if current_hunk:
+                current_hunk.lines_removed.append(line[1:].rstrip())
+        elif line.startswith(' '):
+            if current_hunk:
+                current_hunk.lines_context.append(('context', line[1:].rstrip()))
+
+    if current_hunk:
+        hunks.append(current_hunk)
+
+    return hunks
+
+
+def classify_change_type(path: str, hunks: List[DiffHunk], old_content: str, new_content: str) -> Tuple[str, str, str]:
+    """分类变更类型并识别语义类别"""
+    path_lower = path.lower()
+    change_type = "unknown"
+    semantic_category = "other"
+    game_impact = "无明显游戏性影响"
+
+    added_lines = []
+    removed_lines = []
+    for hunk in hunks:
+        added_lines.extend(hunk.lines_added)
+        removed_lines.extend(hunk.lines_removed)
+
+    all_changed_text = " ".join(added_lines + removed_lines).lower()
+
+    if any(kw in path_lower for kw in ["localization", "l_english", "l_simp_chinese", "l_"]):
+        change_type = "localization"
+        semantic_category = "localization"
+        game_impact = "仅文本翻译更新，无游戏性影响"
+    elif any(kw in path_lower for kw in ["gui", "window_", "interface"]):
+        change_type = "gui"
+        semantic_category = "ui"
+        game_impact = "界面/UI调整，不影响核心游戏机制"
+    elif any(kw in path_lower for kw in ["binary", "dll", "exe", "launcher"]):
+        change_type = "binary"
+        semantic_category = "binary"
+        game_impact = "二进制文件更新，可能是版本号变更或小修复"
+    elif any(kw in path_lower for kw in ["event", "story_cycle"]):
+        change_type = "feature"
+        semantic_category = "events"
+        if any(kw in all_changed_text for kw in ["trigger", "option", "effect"]):
+            game_impact = "事件逻辑调整，可能影响游戏流程"
+        else:
+            game_impact = "事件内容/文本调整"
+    elif any(kw in path_lower for kw in ["title", "law", "succession"]):
+        change_type = "major"
+        semantic_category = "title_system"
+        game_impact = "⚠️ 继承法/头衔系统重大调整，影响游戏核心机制"
+    elif any(kw in path_lower for kw in ["character_interaction", "interaction"]):
+        change_type = "balance"
+        semantic_category = "interactions"
+        if any(kw in all_changed_text for kw in ["ai_will_do", "ai_potential", "factor", "modifier"]):
+            game_impact = "⚠️ AI行为/互动平衡性调整"
+        else:
+            game_impact = "互动系统调整"
+    elif any(kw in path_lower for kw in ["history", "province", "character"]):
+        change_type = "feature"
+        semantic_category = "history"
+        game_impact = "历史数据/角色调整"
+    elif any(kw in path_lower for kw in ["pregnancy", "fertility"]):
+        change_type = "bugfix"
+        semantic_category = "pregnancy_system"
+        game_impact = "⚠️ 妊娠/生育系统修复"
+    else:
+        for ct, keywords in CHANGE_TYPE_KEYWORDS.items():
+            if any(kw in all_changed_text for kw in keywords):
+                change_type = ct
+                break
+
+        if change_type == "major":
+            semantic_category = "game_mechanics"
+            game_impact = "⚠️ 核心游戏机制调整"
+        elif change_type == "bugfix":
+            semantic_category = "bugfix"
+            game_impact = "Bug修复，不会改变正常游戏体验"
+        elif change_type == "balance":
+            semantic_category = "balance"
+            game_impact = "游戏平衡性调整"
+        elif change_type == "feature":
+            semantic_category = "features"
+            game_impact = "新功能或功能调整"
+
+    if any(kw in all_changed_text for kw in PDS_KEYWORDS["game_mechanics"]):
+        if "⚠️" not in game_impact:
+            game_impact = "⚠️ " + game_impact
+        semantic_category = "game_mechanics"
+
+    return change_type, semantic_category, game_impact
+
+
+def generate_diff_summary(hunks: List[DiffHunk], max_lines: int = 15) -> str:
+    """生成diff摘要"""
+    total_added = sum(len(h.lines_added) for h in hunks)
+    total_removed = sum(len(h.lines_removed) for h in hunks)
+
+    summary_lines = []
+    summary_lines.append(f"**+{total_added}** 行新增, **-{total_removed}** 行删除")
+
+    if hunks:
+        first_hunk = hunks[0]
+        if first_hunk.lines_removed:
+            summary_lines.append("\n**删除的关键内容** (前5行):")
+            for line in first_hunk.lines_removed[:5]:
+                if line.strip():
+                    summary_lines.append(f"```pdx\n-{line}\n```")
+
+        if first_hunk.lines_added:
+            summary_lines.append("\n**新增的关键内容** (前5行):")
+            for line in first_hunk.lines_added[:5]:
+                if line.strip():
+                    summary_lines.append(f"```pdx\n+{line}\n```")
+
+    return "\n".join(summary_lines)
+
+
 def compare_versions(
     old_dir: str, new_dir: str, version_old: str, version_new: str
 ) -> DiffReport:
     """比较两个版本"""
-    print(f"\n[1/5] 扫描版本 {version_old}...")
+    print(f"\n[1/6] 扫描版本 {version_old}...")
     old_files = scan_directory(old_dir)
     print(f"  找到 {len(old_files)} 个文件")
 
-    print(f"\n[2/5] 扫描版本 {version_new}...")
+    print(f"\n[2/6] 扫描版本 {version_new}...")
     new_files = scan_directory(new_dir)
     print(f"  找到 {len(new_files)} 个文件")
 
@@ -192,9 +422,8 @@ def compare_versions(
 
 def detect_changed_systems(report: DiffReport) -> Dict[str, dict]:
     """自动检测哪些系统发生了变化（考虑文件数量和行数变化）"""
-    print("\n[3/5] 自动检测变化的系统（分析文件数量 + 行数变化）...")
+    print("\n[3/6] 自动检测变化的系统（分析文件数量 + 行数变化）...")
 
-    # 游戏核心系统关键词
     system_keywords = {
         "religion": ["doctrine", "holy_site", "religion_family", "faith", "fervor"],
         "ui": ["gui", "window_", "pdx_account", "interface"],
@@ -221,9 +450,10 @@ def detect_changed_systems(report: DiffReport) -> Dict[str, dict]:
         "trade": ["trade", "trade_route", "economy"],
         "interest": ["interest", "clan"],
         "magic": ["magic", "spell"],
+        "interactions": ["interaction", "character_interaction"],
+        "pregnancy": ["pregnancy", "fertility"],
     }
 
-    # 初始化系统数据结构
     systems = {}
     for system_name in system_keywords:
         systems[system_name] = {
@@ -231,19 +461,17 @@ def detect_changed_systems(report: DiffReport) -> Dict[str, dict]:
             "removed": [],
             "modified": [],
             "file_count": 0,
-            "line_changes": 0,  # 新增：行数变化
+            "line_changes": 0,
             "total_old_lines": 0,
             "total_new_lines": 0,
         }
 
-    # 对每个改变的路径进行分类并计算行数变化
     for d in report.file_diffs:
         if d["status"] == "unchanged":
             continue
 
         path = d["path"].lower()
 
-        # 计算行数变化（仅对文本文件有效）
         line_diff = 0
         old_lines = 0
         new_lines = 0
@@ -255,7 +483,6 @@ def detect_changed_systems(report: DiffReport) -> Dict[str, dict]:
                 new_lines = new_info.get("line_count", 0) or 0
                 line_diff = abs(new_lines - old_lines)
 
-        # 归类到系统
         for system_name, keywords in system_keywords.items():
             for kw in keywords:
                 if kw.lower() in path:
@@ -266,31 +493,20 @@ def detect_changed_systems(report: DiffReport) -> Dict[str, dict]:
                         systems[system_name]["total_new_lines"] += new_lines
                     break
 
-    # 计算每个系统的总变化（文件数 + 行数权重）
     for system_name in systems:
         s = systems[system_name]
         s["file_count"] = len(s["added"]) + len(s["removed"]) + len(s["modified"])
 
-    # 显著性过滤：考虑文件数和行数变化
-    # 条件：
-    # 1. 变化文件数 >= 3
-    # 2. 或有新增/删除文件
-    # 3. 或行数变化 >= 100 行
-    # 4. 或行数变化比例 >= 20% 且绝对行数变化 >= 50 行
     significant_systems = {}
     for name, s in systems.items():
         is_significant = False
 
-        # 条件1: 文件数足够多
         if s["file_count"] >= 3:
             is_significant = True
-        # 条件2: 有新增或删除文件
         elif len(s["added"]) > 0 or len(s["removed"]) > 0:
             is_significant = True
-        # 条件3: 行数变化足够大
         elif s["line_changes"] >= 100:
             is_significant = True
-        # 条件4: 行数变化比例大且绝对值可观
         elif s["total_old_lines"] > 0:
             change_ratio = s["line_changes"] / s["total_old_lines"]
             if change_ratio >= 0.2 and s["line_changes"] >= 50:
@@ -323,49 +539,131 @@ def detect_changed_systems(report: DiffReport) -> Dict[str, dict]:
     return significant_systems
 
 
+def perform_deep_analysis(
+    report: DiffReport,
+    old_dir: str,
+    new_dir: str,
+    max_files: int = 0
+) -> List[FileDeepDiff]:
+    """执行深度代码分析"""
+    limit_str = "无限制" if max_files == 0 else f"最多分析 {max_files} 个文件"
+    print(f"\n[4/6] 执行深度代码分析 ({limit_str})...")
+
+    deep_diffs = []
+    modified_files = [d for d in report.file_diffs if d["status"] == "modified"]
+
+    count = 0
+    for d in modified_files:
+        if max_files > 0 and count >= max_files:
+            print(f"  已达到最大分析文件数 ({max_files})，跳过剩余文件")
+            break
+
+        path = d["path"]
+        if is_binary_file(path):
+            continue
+
+        old_path = os.path.join(old_dir, path)
+        new_path = os.path.join(new_dir, path)
+
+        if not os.path.exists(old_path) or not os.path.exists(new_path):
+            continue
+
+        old_lines = read_file_lines(old_path)
+        new_lines = read_file_lines(new_path)
+
+        if not old_lines and not new_lines:
+            continue
+
+        hunks = compute_line_diff(old_lines, new_lines)
+        if not hunks:
+            continue
+
+        change_type, semantic_category, game_impact = classify_change_type(path, hunks, old_lines, new_lines)
+
+        deep_diff = FileDeepDiff(
+            path=path,
+            status="modified",
+            change_type=change_type,
+            semantic_category=semantic_category,
+            game_impact=game_impact,
+            hunks=hunks,
+            summary=generate_diff_summary(hunks),
+            old_lines_count=len(old_lines),
+            new_lines_count=len(new_lines)
+        )
+        deep_diffs.append(deep_diff)
+        count += 1
+
+        print(f"  分析: {path} -> {change_type}")
+
+    deep_diffs.sort(key=lambda x: (
+        0 if x.change_type == "major" else
+        1 if x.change_type == "bugfix" else
+        2 if x.change_type == "balance" else
+        3 if x.change_type == "feature" else 4
+    ))
+
+    print(f"  深度分析完成，共分析 {len(deep_diffs)} 个文件")
+    return deep_diffs
+
+
 def generate_dynamic_report(
     report: DiffReport,
     systems: Dict[str, dict],
+    deep_diffs: List[FileDeepDiff],
     old_dir: str,
     new_dir: str,
     output_dir: str,
     author: str,
     model: str,
 ) -> str:
-    """生成动态分析报告"""
-    print("\n[4/5] 生成详细分析报告...")
+    """生成动态分析报告（深度版）"""
+    print("\n[5/6] 生成详细分析报告...")
 
     output_path = os.path.join(
         output_dir,
-        f"Crusader_Kings_III_v{report.version_old}_vs_v{report.version_new}_极详细分析报告.md",
+        f"Crusader_Kings_III_v{report.version_old}_vs_v{report.version_new}_初步分析报告.md",
     )
     os.makedirs(output_dir, exist_ok=True)
 
     lines = []
     lines.append(
-        f"# Crusader Kings III 版本 {report.version_old} vs {report.version_new} 极详细对比分析报告\n"
+        f"# Crusader Kings III 版本 {report.version_old} vs {report.version_new} 深度对比分析报告\n"
     )
     lines.append("## 版本基本信息\n")
-    lines.append(f"- **游戏分支**: {report.version_old} → {report.version_new}")
-    lines.append(f"- **分析时间**: {datetime.now().strftime('%Y-%m-%d')}")
-    lines.append(f"- **数据来源**: compare_versions.py 自动分析 + 源代码深度审查")
+    lines.append(f"- **游戏版本**: {report.version_old} → {report.version_new}")
+    lines.append(f"- **分析时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    lines.append(f"- **数据来源**: CK3 Version Analyzer 自动化分析 + 源代码深度审查")
     lines.append("")
 
-    # 整体统计
     lines.append("---\n")
     lines.append("## 一、整体差异统计总览\n")
+
+    total_changes = report.summary['added'] + report.summary['removed'] + report.summary['modified']
+    if total_changes <= 10:
+        scale = "微小"
+    elif total_changes <= 50:
+        scale = "较小"
+    elif total_changes <= 200:
+        scale = "中等"
+    elif total_changes <= 500:
+        scale = "较大"
+    else:
+        scale = "巨大"
+
     lines.append(f"- **新增文件**: {report.summary['added']} 个")
     lines.append(f"- **删除文件**: {report.summary['removed']} 个")
     lines.append(f"- **修改文件**: {report.summary['modified']} 个")
     lines.append(f"- **未变化文件**: {report.summary['unchanged']} 个")
     lines.append(
-        f"- **净变化**: {'+' if report.summary['added'] > report.summary['removed'] else ''}{report.summary['added'] - report.summary['removed']} 个文件\n"
+        f"- **净变化**: {'+' if report.summary['added'] > report.summary['removed'] else ''}{report.summary['added'] - report.summary['removed']} 个文件"
     )
+    lines.append(f"- **变更规模**: {scale} ({total_changes} 个文件)\n")
 
-    # 变化系统列表（按综合评分排序：文件数*100 + 行数变化）
     lines.append("---\n")
     lines.append("## 二、变化系统概览\n")
     lines.append(f"共检测到 **{len(systems)}** 个显著变化的系统：\n")
+
     for name, data in sorted(
         systems.items(),
         key=lambda x: x[1]["file_count"] * 100 + x[1].get("line_changes", 0),
@@ -373,75 +671,67 @@ def generate_dynamic_report(
     ):
         ratio_str = (
             f" ({data.get('change_ratio', 0) * 100:.1f}% 变化)"
-            if data.get("change_ratio", 0) > 0
+            if data.get('change_ratio', 0) > 0
             else ""
         )
+        importance = "⚠️" if name in ["title", "succession", "government", "religion"] else ""
         lines.append(
-            f"- **{name}**: +{len(data['added'])} -{len(data['removed'])} ~{len(data['modified'])} "
+            f"- **{importance}{name}**: +{len(data['added'])} -{len(data['removed'])} ~{len(data['modified'])} "
             f"({data['file_count']} 个文件, {data.get('line_changes', 0)} 行变化){ratio_str}"
         )
     lines.append("")
 
-    # 每个系统的详细分析
-    section_num = 3
-    for name, data in sorted(
-        systems.items(),
-        key=lambda x: x[1]["file_count"] * 100 + x[1].get("line_changes", 0),
-        reverse=True,
-    ):
-        if data["file_count"] == 0 and data.get("line_changes", 0) == 0:
-            continue
+    lines.append("---\n")
+    lines.append("## 三、深度代码分析\n")
+    lines.append(f"对 **{len(deep_diffs)}** 个关键修改文件进行了深度代码对比分析：\n")
 
-        lines.append("---\n")
-        lines.append(f"## {section_num}、{system_name.upper()} 系统变化\n")
+    section_num = 1
+    for deep_diff in deep_diffs:
+        lines.append(f"### 3.{section_num} `{deep_diff.path}`\n")
+        lines.append(f"**变更类型**: {deep_diff.change_type.upper()}")
+        lines.append(f"**语义类别**: {deep_diff.semantic_category}")
+        lines.append(f"**游戏性影响**: {deep_diff.game_impact}\n")
 
-        # 变化统计摘要
-        lines.append(
-            f"**文件变化**: +{len(data['added'])} -{len(data['removed'])} ~{len(data['modified'])}"
-        )
-        lines.append(f"**行数变化**: {data.get('line_changes', 0)} 行")
-        if data.get("change_ratio", 0) > 0:
-            lines.append(f"**变化比例**: {data['change_ratio'] * 100:.1f}%")
+        lines.append(f"**行数统计**: {deep_diff.old_lines_count} → {deep_diff.new_lines_count} 行\n")
+
+        lines.append(f"**代码对比摘要**:\n")
+        lines.append(deep_diff.summary)
         lines.append("")
-
-        # 新增文件
-        if data["added"]:
-            lines.append(f"### {section_num}.1 新增文件 ({len(data['added'])} 个)\n")
-            shown = data["added"][:20]  # 最多显示20个
-            for f in shown:
-                lines.append(f"- `{f}`")
-            if len(data["added"]) > 20:
-                lines.append(f"- ... 还有 {len(data['added']) - 20} 个新增文件")
-            lines.append("")
-
-        # 删除文件
-        if data["removed"]:
-            lines.append(f"### {section_num}.2 删除文件 ({len(data['removed'])} 个)\n")
-            shown = data["removed"][:20]
-            for f in shown:
-                lines.append(f"- `{f}`")
-            if len(data["removed"]) > 20:
-                lines.append(f"- ... 还有 {len(data['removed']) - 20} 个删除文件")
-            lines.append("")
-
-        # 修改文件
-        if data["modified"]:
-            lines.append(f"### {section_num}.3 修改文件 ({len(data['modified'])} 个)\n")
-            shown = data["modified"][:20]
-            for f in shown:
-                lines.append(f"- `{f}`")
-            if len(data["modified"]) > 20:
-                lines.append(f"- ... 还有 {len(data['modified']) - 20} 个修改文件")
-            lines.append("")
 
         section_num += 1
 
-    # 附录
+    lines.append("---\n")
+    lines.append("## 四、重大变更专项分析\n")
+
+    major_changes = [d for d in deep_diffs if d.change_type in ["major", "bugfix", "balance"]]
+    if major_changes:
+        for deep_diff in major_changes:
+            lines.append(f"### ⚠️ {deep_diff.path}\n")
+            lines.append(f"**类型**: {deep_diff.change_type}")
+            lines.append(f"**影响**: {deep_diff.game_impact}\n")
+            lines.append(deep_diff.summary)
+            lines.append("")
+    else:
+        lines.append("未检测到重大游戏性变更。\n")
+
+    lines.append("---\n")
+    lines.append("## 五、变更类型分布\n")
+
+    change_type_counts = defaultdict(int)
+    for d in deep_diffs:
+        change_type_counts[d.change_type] += 1
+
+    for ct in ["major", "bugfix", "balance", "feature", "localization", "gui", "other"]:
+        if ct in change_type_counts:
+            lines.append(f"- **{ct}**: {change_type_counts[ct]} 个文件")
+
+    lines.append("")
+
     lines.append("---\n")
     lines.append("## 附录 A: 完整变更文件统计\n")
-    lines.append(f"- 新增文件总计: {len(report.summary['added'])} 个")
-    lines.append(f"- 删除文件总计: {len(report.summary['removed'])} 个")
-    lines.append(f"- 修改文件总计: {len(report.summary['modified'])} 个")
+    lines.append(f"- 新增文件总计: {report.summary['added']} 个")
+    lines.append(f"- 删除文件总计: {report.summary['removed']} 个")
+    lines.append(f"- 修改文件总计: {report.summary['modified']} 个")
     lines.append("")
 
     lines.append("### 新增文件 TOP 50\n")
@@ -458,9 +748,10 @@ def generate_dynamic_report(
 
     lines.append("---\n")
     lines.append("## 附录 B: 生成信息\n")
-    lines.append(f"- **报告生成时间**: {datetime.now().strftime('%Y-%m-%d')}")
+    lines.append(f"- **报告生成时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     lines.append(f"- **分析模型**: {model}")
     lines.append(f"- **协作人**: {author}")
+    lines.append(f"- **深度分析文件数**: {len(deep_diffs)}")
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
@@ -476,29 +767,25 @@ def generate_bilibili_version(source_path: str) -> str:
     with open(source_path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # 移除表格语法，转换为列表
     lines = content.split("\n")
     new_lines = []
 
     for line in lines:
-        # 检测表格分隔线
         if re.match(r"\|[-:\s]+\|", line):
             continue
-        # 检测表格行
         elif line.startswith("|") and line.endswith("|"):
             parts = [p.strip() for p in line.split("|") if p.strip()]
             if len(parts) >= 2:
-                for i, cell in enumerate(parts[1:]):
-                    new_lines.append(f"- **{parts[0]}: {cell}**")
+                for i, cell in enumerate(parts[1:], 1):
+                    new_lines.append(f"- **{parts[0]}**: {cell}")
                 continue
         new_lines.append(line)
 
     new_content = "\n".join(new_lines)
-    # 移除多余的连续空行
     new_content = re.sub(r"\n{3,}", "\n\n", new_content)
 
     output_path = source_path.replace(
-        "极详细分析报告.md", "极详细分析报告_B站专栏版.md"
+        "初步分析报告.md", "初步分析报告_B站专栏版.md"
     )
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(new_content)
@@ -510,8 +797,21 @@ def generate_bilibili_version(source_path: str) -> str:
 def export_json(report: DiffReport, output_path: str):
     """导出 JSON 格式报告"""
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    report_dict = asdict(report)
+    for dd in report_dict.get("deep_diffs", []):
+        dd["hunks"] = [
+            {
+                **hunk,
+                "lines_added": hunk["lines_added"],
+                "lines_removed": hunk["lines_removed"],
+                "lines_context": [(t, c) for t, c in hunk["lines_context"]]
+            }
+            for hunk in dd["hunks"]
+        ] if dd.get("hunks") else []
+
     with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(asdict(report), f, indent=2, ensure_ascii=False)
+        json.dump(report_dict, f, indent=2, ensure_ascii=False)
     print(f"  已导出: {output_path}")
 
 
@@ -588,12 +888,14 @@ def main():
     parser.add_argument("--output-dir", default="diff_output", help="输出目录")
     parser.add_argument("--author", default="XenoAmess", help="报告作者")
     parser.add_argument("--model", default="MiniMax-M2.7", help="分析模型")
+    parser.add_argument("--max-deep-files", type=int, default=0, help="深度分析的最大文件数 (默认: 0表示无限制)")
+    parser.add_argument("--no-deep-analysis", action="store_true", help="禁用深度代码分析")
 
     args = parser.parse_args()
     base_dir = os.path.dirname(os.path.abspath(__file__))
 
     print("=" * 60)
-    print("  CK3 Version Analyzer")
+    print("  CK3 Version Analyzer (Enhanced)")
     print("  Crusader Kings III 版本差异对比工具")
     print("=" * 60)
 
@@ -621,7 +923,6 @@ def main():
         .replace("CK3_", "")
     )
 
-    # 执行对比
     report = compare_versions(folder_a, folder_b, version_a_name, version_b_name)
 
     print(f"\n差异统计:")
@@ -630,19 +931,20 @@ def main():
     print(f"  修改: {report.summary['modified']}")
     print(f"  未变: {report.summary['unchanged']}")
 
-    # 导出基础格式（必选）
     export_json(report, os.path.join(args.output_dir, "diff_report.json"))
     export_csv(report, os.path.join(args.output_dir, "diff_report.csv"))
 
-    # 自动检测变化的系统
     systems = detect_changed_systems(report)
 
-    # 生成动态报告
+    deep_diffs = []
+    if not args.no_deep_analysis:
+        deep_diffs = perform_deep_analysis(report, folder_a, folder_b, args.max_deep_files)
+        report.deep_diffs = deep_diffs
+
     report_path = generate_dynamic_report(
-        report, systems, folder_a, folder_b, args.output_dir, args.author, args.model
+        report, systems, deep_diffs, folder_a, folder_b, args.output_dir, args.author, args.model
     )
 
-    # 生成 B站专栏版（必选）
     generate_bilibili_version(report_path)
 
     print("\n" + "=" * 60)
