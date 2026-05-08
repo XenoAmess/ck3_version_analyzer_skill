@@ -343,27 +343,44 @@ def classify_change_type(path: str, hunks: List[DiffHunk], old_content: str, new
     return change_type, semantic_category, game_impact
 
 
-def generate_diff_summary(hunks: List[DiffHunk], max_lines: int = 15) -> str:
-    """生成diff摘要"""
+def generate_diff_summary(hunks: List[DiffHunk], max_lines: int = 0) -> str:
+    """生成diff摘要，确保展示新旧代码对比
+    Args:
+        hunks: diff的hunks列表
+        max_lines: 最大输出行数，0表示不限制
+    """
     total_added = sum(len(h.lines_added) for h in hunks)
     total_removed = sum(len(h.lines_removed) for h in hunks)
 
     summary_lines = []
     summary_lines.append(f"**+{total_added}** 行新增, **-{total_removed}** 行删除")
 
-    if hunks:
-        first_hunk = hunks[0]
-        if first_hunk.lines_removed:
-            summary_lines.append("\n**删除的关键内容** (前5行):")
-            for line in first_hunk.lines_removed[:5]:
-                if line.strip():
-                    summary_lines.append(f"```pdx\n-{line}\n```")
+    if not hunks:
+        return "\n".join(summary_lines)
 
-        if first_hunk.lines_added:
-            summary_lines.append("\n**新增的关键内容** (前5行):")
-            for line in first_hunk.lines_added[:5]:
-                if line.strip():
-                    summary_lines.append(f"```pdx\n+{line}\n```")
+    all_removed_lines = []
+    all_added_lines = []
+    for hunk in hunks:
+        all_removed_lines.extend(hunk.lines_removed)
+        all_added_lines.extend(hunk.lines_added)
+
+    if all_removed_lines:
+        summary_lines.append("\n**旧代码** (被删除的内容):")
+        lines_to_show = all_removed_lines if max_lines == 0 else all_removed_lines[:max_lines]
+        for line in lines_to_show:
+            if line.strip():
+                summary_lines.append(f"```pdx\n-{line}\n```")
+        if max_lines > 0 and len(all_removed_lines) > max_lines:
+            summary_lines.append(f"_... 还有 {len(all_removed_lines) - max_lines} 行被删除的旧代码_")
+
+    if all_added_lines:
+        summary_lines.append("\n**新代码** (新增的内容):")
+        lines_to_show = all_added_lines if max_lines == 0 else all_added_lines[:max_lines]
+        for line in lines_to_show:
+            if line.strip():
+                summary_lines.append(f"```pdx\n+{line}\n```")
+        if max_lines > 0 and len(all_added_lines) > max_lines:
+            summary_lines.append(f"_... 还有 {len(all_added_lines) - max_lines} 行新增代码_")
 
     return "\n".join(summary_lines)
 
@@ -607,6 +624,35 @@ def perform_deep_analysis(
     return deep_diffs
 
 
+def read_version_info(version_dir: str) -> dict:
+    """读取版本信息"""
+    version_info = {
+        "game_branch": "",
+        "game_commit": "",
+        "engine_branch": "",
+        "engine_commit": "",
+    }
+
+    files_to_read = {
+        "game_branch": "titus_branch.txt",
+        "game_commit": "titus_rev.txt",
+        "engine_branch": "clausewitz_branch.txt",
+        "engine_commit": "clausewitz_rev.txt",
+    }
+
+    for key, filename in files_to_read.items():
+        filepath = os.path.join(version_dir, filename)
+        try:
+            if os.path.exists(filepath):
+                with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+                    content = f.read().strip()
+                    version_info[key] = content
+        except Exception:
+            pass
+
+    return version_info
+
+
 def generate_dynamic_report(
     report: DiffReport,
     systems: Dict[str, dict],
@@ -626,12 +672,32 @@ def generate_dynamic_report(
     )
     os.makedirs(output_dir, exist_ok=True)
 
+    old_version_info = read_version_info(old_dir)
+    new_version_info = read_version_info(new_dir)
+
     lines = []
     lines.append(
         f"# Crusader Kings III 版本 {report.version_old} vs {report.version_new} 深度对比分析报告\n"
     )
+
     lines.append("## 版本基本信息\n")
-    lines.append(f"- **游戏版本**: {report.version_old} → {report.version_new}")
+    lines.append("**游戏分支**\n")
+    lines.append(f"- {report.version_old}: {old_version_info['game_branch']}")
+    lines.append(f"- {report.version_new}: {new_version_info['game_branch']}")
+    lines.append("")
+    lines.append("**游戏提交**\n")
+    lines.append(f"- {report.version_old}: {old_version_info['game_commit']}")
+    lines.append(f"- {report.version_new}: {new_version_info['game_commit']}")
+    lines.append("")
+    lines.append("**引擎分支**\n")
+    lines.append(f"- {report.version_old}: {old_version_info['engine_branch']}")
+    lines.append(f"- {report.version_new}: {new_version_info['engine_branch']}")
+    lines.append("")
+    lines.append("**引擎提交**\n")
+    lines.append(f"- {report.version_old}: {old_version_info['engine_commit']}")
+    lines.append(f"- {report.version_new}: {new_version_info['engine_commit']}")
+    lines.append("")
+
     lines.append(f"- **分析时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     lines.append(f"- **数据来源**: CK3 Version Analyzer 自动化分析 + 源代码深度审查")
     lines.append("")
@@ -651,14 +717,15 @@ def generate_dynamic_report(
     else:
         scale = "巨大"
 
-    lines.append(f"- **新增文件**: {report.summary['added']} 个")
-    lines.append(f"- **删除文件**: {report.summary['removed']} 个")
-    lines.append(f"- **修改文件**: {report.summary['modified']} 个")
-    lines.append(f"- **未变化文件**: {report.summary['unchanged']} 个")
-    lines.append(
-        f"- **净变化**: {'+' if report.summary['added'] > report.summary['removed'] else ''}{report.summary['added'] - report.summary['removed']} 个文件"
-    )
-    lines.append(f"- **变更规模**: {scale} ({total_changes} 个文件)\n")
+    lines.append(f"- **新增文件**: {report.summary['added']} 个（仅存在于 {report.version_new} 的文件）")
+    lines.append(f"- **删除文件**: {report.summary['removed']} 个（仅存在于 {report.version_old} 的文件）")
+    lines.append(f"- **修改文件**: {report.summary['modified']} 个（两版本都存在但内容/大小不同）")
+    lines.append(f"- **未变化文件**: {report.summary['unchanged']} 个（两版本完全相同）")
+
+    total_old = report.summary['unchanged'] + report.summary['removed'] + report.summary['modified']
+    total_new = report.summary['unchanged'] + report.summary['added'] + report.summary['modified']
+    net_change = total_new - total_old
+    lines.append(f"- **文件总数**: {total_old} → {total_new}，净{'增加' if net_change > 0 else '减少' if net_change < 0 else '变化'} {abs(net_change)} 个文件\n")
 
     lines.append("---\n")
     lines.append("## 二、变化系统概览\n")
