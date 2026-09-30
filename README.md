@@ -1,172 +1,57 @@
 # CK3 Version Analyzer
 
-自动化分析 Crusader Kings III 两个版本之间的差异，生成详细的对比分析报告。
+比较两个 Crusader Kings III 版本目录，提取代码差异，再由当前 Agent 完成中文玩法解读。
+Python 3.10+，运行脚本无需第三方依赖。
 
-## 功能特性
+## 使用
 
-- **动态系统检测**：根据实际文件变化自动识别变化的系统，而非固定分析项目
-- **多维度评估**：同时考虑文件数量和行数变化，确保不遗漏重大改动
-- **多种输出格式**：JSON、CSV、Markdown 详细报告
-- **B站专栏适配**：自动生成无表格的 B站专栏特供版
-- **零配置使用**：默认参数即可分析 1.18.4 vs 1.19.0
+在仓库根目录运行，明确指定旧版、新版和输出位置：
 
-## 快速开始
+~~~powershell
+py -3 ck3_analyzer.py analyze "Crusader Kings III_1.19.0.4" "Crusader Kings III_1.19.0.5" --output-dir "diff_output_1.19.0.4_vs_1.19.0.5"
+~~~
 
-### 基本用法
+其他系统可用 python。输入也可使用绝对路径；相对输入基于当前工作目录或 --base-dir。
+输出路径基于当前工作目录，不能放在输入目录内。省略 --output-dir 时按版本配对命名。
+历史默认配对仍为 1.18.4 → 1.19.0，执行前应确认就是要分析这组版本。
 
-```bash
-# 使用默认版本 (1.18.4 vs 1.19.0)
-python ck3_analyzer.py analyze
+- --max-deep-files N：先排序再限制文本分析；0 为全量。
+- --snippet-lines N：每文件展示最多 N 行原始差异，默认 20；0 不限制。
+- --no-deep-analysis：仅扫描与统计。
+- --encoding NAME：显式指定无 BOM 文本编码，默认严格 UTF-8。
+- --model LABEL：记录模型标签，不调用模型。
+- --author XenoAmess：保留兼容参数，协作人固定。
 
-# 指定版本
-python ck3_analyzer.py analyze "Crusader Kings III_1.18.4" "Crusader Kings III_1.19.0"
+运行 --help 查看完整参数。
 
-# 指定输出目录
-python ck3_analyzer.py analyze --output-dir my_output
-```
+## 输出与准确性
 
-### 输出文件
+脚本生成 diff_report.json、diff_report.csv、带版本前缀的初步报告及其 B 站版。
+JSON 在分析结束后导出，含版本提交、SHA-256、完整文本差异、系统分类、异常与覆盖清单。
+所有文件包括二进制都比较内容哈希，行变化使用实际新增行＋删除行，与净行数变化分开。
+目录与关键词分类仅是审查候选；不自动断言 Bug 修复、开发动机或玩家策略。
 
-```
-diff_output/
-├── diff_report.json                                  # 完整数据 (机器可读)
-├── diff_report.csv                                   # CSV 表格
-├── Crusader_Kings_III_v1.18.4_vs_v1.19.0_极详细分析报告.md           # 详细报告
-└── Crusader_Kings_III_v1.18.4_vs_v1.19.0_极详细分析报告_B站专栏版.md  # B站专栏版
-```
+初步报告之后，Agent 核实旧/新代码及相关调用，生成两份无表格的最终报告。
+B 站最终版独立可读，不依赖其他产物。最终交付前运行 skill 内的 validate_report.py。
+旧 schema-v1 报告仍保留；要满足新验收条件需重新扫描。
 
-## 显著性检测逻辑
+## 维护入口
 
-系统被视为显著变化需满足以下任一条件：
+- ck3_analyzer.py：唯一分析实现。
+- [.sisyphus/skills/ck3_version_analyzer/SKILL.md](.sisyphus/skills/ck3_version_analyzer/SKILL.md)：唯一 skill 规则入口。
+- .sisyphus 下的 references：证据口径与最终报告模板，按需读取。
+- .omo 下的 skill 及两处同名脚本：兼容入口，转发到上述实现。
+- tests/test_ck3_analyzer.py：核心比较、覆盖、路径及交付检查的回归测试。
 
-| 条件 | 阈值 | 说明 |
-|------|------|------|
-| 文件数量 | >= 3 个变化文件 | 变化文件数足够多 |
-| 新增/删除 | > 0 | 有新增或删除的文件 |
-| 行数绝对值 | >= 100 行 | 总行数变化较大 |
-| 行数比例 | >= 20% 且 >= 50 行 | 变化比例大且绝对值可观 |
+保留原 skill 目录名；入口文件采用 SKILL.md 并包含 name / description frontmatter。
+这是仓库内 skill，单独复制时需要同时带上根实现并调整转发路径。
 
-**示例**：
+## 验证
 
-```
-# 场景1：多文件变化 → 显著
-religion: +45 -12 ~89 (146 文件, 12500 行变化)
+~~~powershell
+py -3 -B -m unittest discover -s tests -v
+~~~
 
-# 场景2：少文件大改动 → 显著（行数变化触发）
-defines: +0 -0 ~1 (1 文件, 3500 行变化, 22.3%)
+测试使用隔离的临时夹具，不修改游戏目录或历史报告。
 
-# 场景3：小改动 → 不显著
-tiny_change: +1 -0 ~2 (3 文件, 20 行变化, 1.2%)
-```
-
-## 系统归类
-
-文件按路径关键词归类到不同系统：
-
-| 系统 | 关键词 |
-|------|--------|
-| religion | doctrine, holy_site, religion_family, faith, fervor |
-| ui | gui, window_, pdx_account, interface |
-| events | event, story_cycle |
-| gfx | gfx, texture, model, dds, mesh, asset |
-| audio | sound, music, bank, voice |
-| binary | binaries, dll, exe, launcher |
-| defines | defines, 00_defines, portraits |
-| localization | localization, l_english, l_simp_chinese |
-| history | history, provinces, characters |
-| decisions | decisions, decision |
-| traits | traits, trait |
-| modifiers | modifiers, modifier |
-| culture | culture, cultural, tradition, innovation |
-| council | council, councillor |
-| court | court, courtier |
-| war | war, battle, combat |
-| map | map, terrain, province |
-| trade | trade, trade_route, economy |
-
-## 报告示例
-
-```markdown
-# Crusader Kings III 版本 1.18.4 vs 1.19.0 极详细对比分析报告
-
-## 一、整体差异统计总览
-
-- **新增文件**: 583 个
-- **删除文件**: 207 个
-- **修改文件**: 3,789 个
-- **净变化**: +376 个文件
-
-## 二、变化系统概览
-
-共检测到 8 个显著变化的系统：
-
-- **religion**: +50 -25 ~100 (175 文件, 15000 行变化, 12.5%)
-- **ui**: +15 -5 ~40 (60 文件, 8000 行变化, 8.2%)
-- **defines**: +1 -0 ~2 (3 文件, 3500 行变化, 22.3%)
-- **gfx**: +200 -30 ~100 (330 文件, 0 行变化)
-- ...
-
-## 三、RELIGION 系统变化
-
-**文件变化**: +50 -25 ~100
-**行数变化**: 15000 行
-**变化比例**: 12.5%
-
-### 3.1 新增文件 (50 个)
-
-- `game/common/religion/doctrine_types/10_doctrines_religions.txt`
-- `game/common/religion/doctrine_types/20_doctrines.txt`
-- ...
-
-### 3.2 删除文件 (25 个)
-
-- `game/common/religion/doctrines/10_doctrines_religions.txt`
-- ...
-
-### 3.3 修改文件 (100 个)
-
-- `game/common/religion/doctrine_group_types/00_doctrine_group_types.txt`
-- ...
-```
-
-## 项目结构
-
-```
-.sisyphus/skills/ck3_version_analyzer/
-├── ck3_analyzer.py    # 主分析脚本
-├── skill.md           # Sisyphus Skill 定义
-└── README.md          # 本文档
-```
-
-## 技术细节
-
-### 文件扫描
-
-- 文本文件：计算 MD5 哈希 + 行数
-- 二进制文件：仅计算大小（.dll, .dds, .bank 等）
-- 自动跳过 `.idea` 目录
-
-### 行数统计
-
-- 只对文本文件有效
-- 变化比例 = |新行数 - 旧行数| / 旧行数
-- 二进制文件的行数变化计为 0
-
-### 排序算法
-
-综合评分 = `文件数 * 100 + 行数变化`
-
-确保文件数量多和行数变化大的系统排在前面。
-
-## 依赖
-
-- Python 3.6+
-- 无需第三方库（标准库 only）
-
-## 作者
-
-- **XenoAmess**
-
-## 分析模型
-
-- MiniMax-M2.7 (minimax-cn-coding-plan/MiniMax-M2.7)
+协作人：XenoAmess。
