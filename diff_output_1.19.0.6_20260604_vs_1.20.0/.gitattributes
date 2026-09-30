@@ -1,0 +1,4 @@
+# Preserve report counts, hashes and archive content across Windows checkouts.
+*.md text eol=lf
+*.json text eol=lf
+*.zip binary

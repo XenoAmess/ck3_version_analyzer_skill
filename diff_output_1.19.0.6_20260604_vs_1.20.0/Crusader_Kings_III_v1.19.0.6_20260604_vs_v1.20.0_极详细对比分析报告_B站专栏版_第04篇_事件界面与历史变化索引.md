@@ -1,0 +1,1282 @@
+# CK3 1.19.0.6 → 1.20.0 极详细对比分析报告（4/4）：事件界面与历史变化索引
+
+比较方向：旧目录 Crusader Kings III_1.19.0.6_20260604 → 新目录 Crusader Kings III_1.20.0。本文分析的是用户指定的两份本地文件快照，所有玩法结论以这两份代码为依据。未核验它们是否与发行平台原始安装包完全一致，因此不能将本地特有脚本自动当作官方更新公告。
+
+**版本标识特别说明：新版目录名为 1.20.0，但 launcher/launcher-settings.json 内部记录为 1.20.0.2 (Crozier)；旧版记录为 1.19.0.6 (Scribe)。本文沿用用户指定目录名作为报告标题，实际证据对应下列分支、提交及内部版本号。**
+
+## 版本基本信息
+
+- **游戏分支**:
+  - 旧版本: q2-26/fix/dlc_fix
+  - 新版本: release/1.20.0
+
+- **游戏提交**:
+  - 旧版本: 6b540d23dbb0ae5f6a2ccc155338feabbaf64bbc
+  - 新版本: f3f2d8163f60c70685010ca1441d93781aaeb5e7
+
+- **引擎分支**:
+  - 旧版本: titus/release/1.19.0
+  - 新版本: titus/release/1.20.0
+
+- **引擎提交**:
+  - 旧版本: dd929f86eb389a5a01102593e080f181b5c01986
+  - 新版本: 08d257dc90e97970ad3aeeaea5c56e13c40810d4
+
+## 整体差异统计总览
+
+- **新增文件**: 3248
+
+- **删除文件**: 218
+
+- **修改文件**: 7707
+
+- **未变化文件**: 41685
+
+- **旧版文件总数**: 49610
+
+- **新版文件总数**: 52640
+
+- **文件总数变化**: +3030
+
+共有 11173 个路径发生内容或存在性变化。新增与删除按路径统计，没有把重命名、迁移或拆分文件当作同一路径；所以“删除文件”不直接等于删除功能。修改以 SHA-256 内容差异判定，未把时间戳变化计为修改。
+
+## 分析覆盖
+
+- **候选文本文件数**: 7765
+
+- **已分析文本文件数**: 7727
+
+- **跳过文本文件数**: 38
+
+- **变化二进制文件数**: 3408
+
+- **未复核文本文件数**: 7689
+
+“已分析文本文件数”是脚本完整提取增删行和差异块的数量；“LLM复核文件数”是本报告实际检查过关键差异或定义的文件数量，见末尾。复核是有明确主题的源代码审查，部分大文件只审查相关定义及调用，不能理解为逐行验证整个文件。附录中的自动清单也不增加语义复核数量。
+
+扫描包括新增、删除与修改的文本；未设置文件数量上限。排除 .git、.idea、.vscode、.ruff_cache、__pycache__ 目录及符号链接。文本默认严格 UTF-8，并识别 BOM；38 个变化的历史文件未通过解码，仍计入字节级差异。补查时只以 ASCII 语句及非 ASCII 字节转义核对明确规则，未猜测编码、未丢弃非法字节。扫描 issues 共 112 条，其中包含未变化文件的解码诊断，不能写成 112 个变化文本全部漏分析。
+
+正文的“代码事实”直接对应脚本、配置或资源；“影响推断”说明它在给定条件下可能影响玩法；“待运行验证”保留引擎解释、事件链和实际 UI 行为的不确定性。没有执行 CK3、读取存档或进行性能跑分。
+
+
+## 分卷与本篇范围
+
+本篇为四篇系列的第 4 篇，内容范围：附录 A.6 中 game/events/ 的 529 项、game/gui/ 的 169 项、game/history/ 的 472 项，共 1170 个变化路径。各项标明状态、原始增删行数及复核范围。
+
+上面的版本信息、扫描统计和末尾的 76 个 LLM复核文件均为原分析的全局口径，不是本篇新增复核的数量。拆分只调整发布篇幅，未扩大语义分析覆盖，未删去原报告的代码证据或限制说明。
+
+本篇 A.6 导语中的 2515 项指系列合计的脚本、事件、历史与 GUI 索引；本篇收录的具体范围以上述数量为准。A/D/M 和行数均来自自动差异证据，“未作语义复核”不能视为已确认的机制或修复结论。分组标题是源码路径前缀，与各条目拼接后得到完整相对路径。
+
+## 附录 A: 事件、界面与历史变化索引
+
+### A.6 脚本、事件、历史与游戏 GUI 的完整变化路径
+
+本清单包含上述四个前缀下全部 2515 个变化路径。源目录之外的资源按 A.1—A.3 汇总，二进制关键项另在正文说明。为减少重复，分组标题给出路径前缀，各行路径按该前缀继续拼接；所有标识都可还原为源码相对路径。
+
+#### game/events/（529 个变化路径）
+
+- M `_events.info`；+34/-0 行；未作语义复核。
+- M `accolade_events.txt`；+341/-0 行；未作语义复核。
+- M `activities/activity_system_events.txt`；+115/-28 行；未作语义复核。
+- M `activities/chariot_race_activity/chariot_ongoing_events_jp.txt`；+45/-24 行；未作语义复核。
+- M `activities/chariot_race_activity/chariot_race_events.txt`；+28/-28 行；未作语义复核。
+- M `activities/chariot_race_activity/chariot_race_ongoing_events.txt`；+140/-147 行；未作语义复核。
+- M `activities/coronation_activity/coronation_events.txt`；+89/-70 行；未作语义复核。
+- M `activities/coronation_activity/coronation_events_02.txt`；+142/-7 行；未作语义复核。
+- M `activities/coronation_activity/coronation_events_1.txt`；+3988/-4030 行；未作语义复核。
+- M `activities/coronation_activity/coronation_events_6.txt`；+292/-220 行；未作语义复核。
+- M `activities/coronation_activity/coronation_events_klank.txt`；+158/-141 行；未作语义复核。
+- M `activities/coronation_activity/guest_intent_coronation_events.txt`；+185/-183 行；未作语义复核。
+- M `activities/coronation_activity/prelude_events.txt`；+296/-297 行；未作语义复核。
+- M `activities/debate_activity/az_debate_events.txt`；+36/-36 行；未作语义复核。
+- M `activities/debate_activity/debate_events.txt`；+18/-19 行；未作语义复核。
+- A `activities/ecumenical_council_activity/pam_ecumemincal_council_summons_events.txt`；+2177/-0 行；未作语义复核。
+- A `activities/ecumenical_council_activity/pam_ecumenical_council_events.txt`；+14870/-0 行；未作语义复核。
+- A `activities/ecumenical_council_activity/pam_ecumenical_council_events_josh.txt`；+2048/-0 行；未作语义复核。
+- A `activities/ecumenical_council_activity/pam_investiture_council_events.txt`；+605/-0 行；未作语义复核。
+- M `activities/feast_activity/feast_default_events_axel.txt`；+26/-6 行；未作语义复核。
+- M `activities/feast_activity/feast_default_events_jason.txt`；+4/-4 行；未作语义复核。
+- M `activities/feast_activity/feast_default_events_joe.txt`；+40/-8 行；未作语义复核。
+- M `activities/feast_activity/feast_default_events_laurence.txt`；+5/-5 行；未作语义复核。
+- M `activities/feast_activity/feast_events.txt`；+546/-59 行；未作语义复核。
+- M `activities/feast_activity/feast_events_ewan.txt`；+17/-17 行；未作语义复核。
+- M `activities/feast_activity/feast_events_flavor.txt`；+56/-67 行；未作语义复核。
+- M `activities/feast_activity/feast_events_klank.txt`；+2/-4 行；未作语义复核。
+- M `activities/feast_activity/feast_events_mkc.txt`；+3/-3 行；未作语义复核。
+- M `activities/feast_activity/feast_events_tova.txt`；+3/-3 行；未作语义复核。
+- M `activities/feast_activity/main_events/feast_default_events.txt`；+1133/-492 行；未作语义复核。
+- M `activities/feast_activity/main_events/feast_default_events_alex.txt`；+12/-11 行；未作语义复核。
+- M `activities/feast_activity/main_events/feast_lifestyle_events.txt`；+6/-6 行；未作语义复核。
+- M `activities/feast_activity/main_events/feast_main_befriend_events.txt`；+2/-2 行；未作语义复核。
+- M `activities/feast_activity/main_events/feast_main_live_fowl_events.txt`；+6/-5 行；未作语义复核。
+- M `activities/feast_activity/main_events/feast_main_stable_breakin_events.txt`；+4/-4 行；未作语义复核。
+- M `activities/feast_activity/main_events/feast_main_stew_flood_events.txt`；+10/-6 行；未作语义复核。
+- M `activities/feast_activity/main_events/feast_tsagaan_sar_events.txt`；+76/-70 行；未作语义复核。
+- M `activities/feast_activity/murder_feast_events.txt`；+13/-11 行；未作语义复核。
+- M `activities/festival_activity/festival_events.txt`；+28/-17 行；未作语义复核。
+- M `activities/funeral_activity/funeral_events.txt`；+248/-177 行；未作语义复核。
+- M `activities/hold_court_activity/hold_court_events_general.txt`；+639/-576 行；未作语义复核。
+- M `activities/hold_court_activity/hold_court_events_james.txt`；+9/-9 行；未作语义复核。
+- M `activities/hold_court_activity/hold_court_events_joe.txt`；+38/-35 行；未作语义复核。
+- M `activities/hunt_activity/hunt_events.txt`；+656/-347 行；未作语义复核。
+- M `activities/hunt_activity/jb_hunt_events.txt`；+69/-62 行；未作语义复核。
+- M `activities/hunt_activity/mpo_hunt_events.txt`；+56/-58 行；未作语义复核。
+- M `activities/hunt_activity/mpo_nerge_events.txt`；+36/-36 行；未作语义复核。
+- M `activities/hunt_activity/tgp_hunt_events.txt`；+32/-28 行；未作语义复核。
+- M `activities/imperial_examination_activity/az_examination_events.txt`；+57/-57 行；未作语义复核。
+- M `activities/imperial_examination_activity/emperor_prep_phase_imperial_examination_events.txt`；+10/-8 行；未作语义复核。
+- M `activities/imperial_examination_activity/imperial_examination_events.txt`；+159/-147 行；未作语义复核。
+- M `activities/imperial_examination_activity/imperial_examination_events_jay.txt`；+13/-13 行；未作语义复核。
+- M `activities/petition_liege_activity/petition_liege_events.txt`；+93/-93 行；未作语义复核。
+- M `activities/pilgrimage_activity/hajj_events.txt`；+42/-30 行；未作语义复核。
+- M `activities/pilgrimage_activity/pilgrimage_events.txt`；+1258/-520 行；未作语义复核。
+- M `activities/pilgrimage_activity/pilgrimage_events_seasia.txt`；+65/-62 行；未作语义复核。
+- M `activities/pilgrimage_activity/pilgrimage_intent_events.txt`；+75/-61 行；未作语义复核。
+- M `activities/playdate_activity/playdate_events.txt`；+107/-111 行；未作语义复核。
+- M `activities/tour_activity/az_tour_events.txt`；+433/-430 行；未作语义复核。
+- M `activities/tour_activity/claudia_tour_grounds_events.txt`；+4/-4 行；未作语义复核。
+- M `activities/tour_activity/filippa_tour_general_events.txt`；+49/-50 行；未作语义复核。
+- M `activities/tour_activity/tour_general_events.txt`；+59/-59 行；未作语义复核。
+- M `activities/tour_activity/tour_general_events_james.txt`；+6/-6 行；未作语义复核。
+- M `activities/tour_activity/tour_grounds_events_chad.txt`；+38/-33 行；未作语义复核。
+- M `activities/tour_activity/tour_phase_cultural_festival.txt`；+264/-207 行；未作语义复核。
+- M `activities/tour_activity/tour_phase_cultural_festival_james.txt`；+49/-59 行；未作语义复核。
+- M `activities/tour_activity/tour_phase_host_a_dinner.txt`；+247/-263 行；未作语义复核。
+- M `activities/tour_activity/tour_phase_tour_grounds.txt`；+113/-106 行；未作语义复核。
+- M `activities/tour_activity/tour_travel_events.txt`；+70/-65 行；未作语义复核。
+- M `activities/tour_activity/tour_travel_events_dan.txt`；+70/-78 行；未作语义复核。
+- M `activities/tour_activity/tour_travel_events_james.txt`；+86/-35 行；未作语义复核。
+- M `activities/tournaments/contest_events.txt`；+161/-122 行；未作语义复核。
+- M `activities/tournaments/ep2_locale_events.txt`；+376/-318 行；未作语义复核。
+- M `activities/tournaments/james_tournament_events.txt`；+15/-15 行；未作语义复核。
+- M `activities/tournaments/jason_first_race_event.txt`；+13/-5 行；未作语义复核。
+- M `activities/tournaments/jason_locale_events.txt`；+38/-38 行；未作语义复核。
+- M `activities/tournaments/jason_race_events.txt`；+26/-18 行；未作语义复核。
+- M `activities/tournaments/jb_recital_contest_events.txt`；+22/-20 行；未作语义复核。
+- M `activities/tournaments/passive_tournament_events_oltner.txt`；+38/-29 行；未作语义复核。
+- M `activities/tournaments/tournament_events.txt`；+379/-323 行；未作语义复核。
+- M `activities/tournaments/veronica_local_events_2.txt`；+42/-33 行；未作语义复核。
+- M `activities/tournaments/veronica_locale_events.txt`；+49/-46 行；未作语义复核。
+- M `artifacts/artifact_events.txt`；+143/-205 行；未作语义复核。
+- M `artifacts/historical_artifacts_events.txt`；+115/-29 行；未作语义复核。
+- M `birth_events.txt`；+183/-50 行；未作语义复核。
+- M `blackmail_events.txt`；+8/-4 行；未作语义复核。
+- M `board_game_events.txt`；+6/-6 行；未作语义复核。
+- M `bookmark_events.txt`；+20/-11 行；未作语义复核。
+- M `bp1_dan_events.txt`；+78/-54 行；未作语义复核。
+- A `clerical_chastity_vow_events.txt`；+23/-0 行；未作语义复核。
+- M `councillor_task_events/chancellor_task_events.txt`；+75/-178 行；未作语义复核。
+- M `councillor_task_events/councillor_spouse_background_events.txt`；+2/-6 行；未作语义复核。
+- M `councillor_task_events/councillor_spouse_events/councillor_spouse_diplomacy_events.txt`；+3/-4 行；未作语义复核。
+- M `councillor_task_events/councillor_spouse_events/councillor_spouse_intrigue_events.txt`；+3/-17 行；未作语义复核。
+- M `councillor_task_events/councillor_spouse_events/councillor_spouse_learning_events.txt`；+17/-19 行；未作语义复核。
+- M `councillor_task_events/councillor_spouse_events/councillor_spouse_stewardship_events.txt`；+9/-10 行；未作语义复核。
+- M `councillor_task_events/court_chaplain_task_events.txt`；+245/-16 行；未作语义复核。
+- M `councillor_task_events/marshal_task_events.txt`；+76/-100 行；未作语义复核。
+- M `councillor_task_events/spymaster_task_events.txt`；+9/-9 行；未作语义复核。
+- M `councillor_task_events/steward_task_events.txt`；+43/-91 行；未作语义复核。
+- M `court_events/01_ep3_court_events.txt`；+24/-24 行；未作语义复核。
+- M `court_events/01_ep3_court_events_3.txt`；+63/-62 行；未作语义复核。
+- M `court_events/court_events_ceremonial.txt`；+13/-13 行；未作语义复核。
+- M `court_events/court_events_general.txt`；+2488/-2446 行；未作语义复核。
+- M `court_events/court_events_general_1.txt`；+7/-7 行；未作语义复核。
+- M `court_events/court_events_new.txt`；+3/-2 行；未作语义复核。
+- M `court_events/introduce_court_fashion_events.txt`；+2/-2 行；未作语义复核。
+- M `court_events/sumptuary_debate_events.txt`；+21/-21 行；未作语义复核。
+- M `court_maintenance_events.txt`；+17/-3 行；未作语义复核。
+- M `courtier_guest_management_events/courtier_guest_management_events.txt`；+17/-28 行；未作语义复核。
+- M `culture_events/culture_emergence_events.txt`；+4/-2 行；未作语义复核。
+- M `culture_events/culture_notification_events.txt`；+114/-34 行；未作语义复核。
+- M `culture_events/culture_tradition_events.txt`；+69/-72 行；未作语义复核。
+- M `culture_events/language_events.txt`；+6/-6 行；未作语义复核。
+- M `death_events/death_management_events.txt`；+385/-160 行；未作语义复核。
+- M `decisions_events/bp3_decisions_events.txt`；+5/-2 行；未作语义复核。
+- M `decisions_events/british_isles_events.txt`；+8/-13 行；未作语义复核。
+- M `decisions_events/ce1_decision_events.txt`；+8/-10 行；未作语义复核。
+- M `decisions_events/culture_conversion_events.txt`；+1/-1 行；未作语义复核。
+- M `decisions_events/east_europe_events.txt`；+93/-92 行；未作语义复核。
+- M `decisions_events/ep2_decision_events.txt`；+1/-1 行；未作语义复核。
+- M `decisions_events/ep4_decision_events.txt`；+6/-6 行；未作语义复核。
+- M `decisions_events/iberia_north_africa_events.txt`；+39/-585 行；未作语义复核。
+- M `decisions_events/major_decisions_events.txt`；+51/-21 行；未作语义复核。
+- M `decisions_events/middle_east_decisions_events.txt`；+40/-43 行；未作语义复核。
+- M `decisions_events/middle_europe_decisions_events.txt`；+65/-8 行；未作语义复核。
+- M `decisions_events/minor_decision_events.txt`；+15/-15 行；未作语义复核。
+- M `decisions_events/mpo_greatest_of_khans_events.txt`；+16/-18 行；未作语义复核。
+- M `decisions_events/pay_homage_events.txt`；+23/-9 行；未作语义复核。
+- M `decisions_events/pledge_loyalty_to_liege_events.txt`；+2/-2 行；未作语义复核。
+- M `decisions_events/roman_restoration_events.txt`；+256/-43 行；未作语义复核。
+- M `decisions_events/south_asia_events.txt`；+134/-166 行；未作语义复核。
+- M `decisions_events/tgp_decision_events.txt`；+27/-15 行；未作语义复核。
+- M `diarchy_events/diarchy_events.txt`；+149/-176 行；未作语义复核。
+- M `diarchy_events/vizierate_events.txt`；+4/-4 行；未作语义复核。
+- M `dlc/ach/ach_coronation_events.txt`；+219/-216 行；未作语义复核。
+- M `dlc/ach/ach_maintenance_events.txt`；+19/-5 行；未作语义复核。
+- M `dlc/ach/ach_yearly_events.txt`；+18/-17 行；未作语义复核。
+- M `dlc/bp1/bp1_filippa_yearly_events.txt`；+37/-41 行；未作语义复核。
+- M `dlc/bp1/bp1_henrik_events.txt`；+14/-14 行；未作语义复核。
+- M `dlc/bp1/bp1_house_feud.txt`；+82/-62 行；未作语义复核。
+- M `dlc/bp1/bp1_yearly.txt`；+391/-373 行；未作语义复核。
+- M `dlc/bp1/bp1_yearly_develop.txt`；+11/-9 行；未作语义复核。
+- M `dlc/bp1/bp1_yearly_events_chad.txt`；+31/-31 行；未作语义复核。
+- M `dlc/bp1/bp1_yearly_events_claudia.txt`；+63/-69 行；未作语义复核。
+- M `dlc/bp1/bp1_yearly_events_nick.txt`；+53/-62 行；未作语义复核。
+- M `dlc/bp1/bp1_yearly_oltner.txt`；+50/-52 行；未作语义复核。
+- M `dlc/bp2/bp2_adult_education_activity_events.txt`；+169/-158 行；未作语义复核。
+- M `dlc/bp2/bp2_adult_education_activity_events_oltner.txt`；+60/-57 行；未作语义复核。
+- M `dlc/bp2/bp2_character_interaction_events.txt`；+2/-2 行；未作语义复核。
+- M `dlc/bp2/bp2_child_of_destiny_events.txt`；+28/-27 行；未作语义复核。
+- M `dlc/bp2/bp2_decision_events.txt`；+37/-11 行；未作语义复核。
+- M `dlc/bp2/bp2_hostage_system.txt`；+1/-1 行；未作语义复核。
+- M `dlc/bp2/bp2_yearly.txt`；+79/-76 行；未作语义复核。
+- M `dlc/bp2/bp2_yearly_0_5.txt`；+42/-46 行；未作语义复核。
+- M `dlc/bp2/bp2_yearly_1_events.txt`；+43/-39 行；未作语义复核。
+- M `dlc/bp2/bp2_yearly_2.txt`；+51/-82 行；未作语义复核。
+- M `dlc/bp2/bp2_yearly_3.txt`；+7/-7 行；未作语义复核。
+- M `dlc/bp2/bp2_yearly_4.txt`；+38/-39 行；未作语义复核。
+- M `dlc/bp2/bp2_yearly_5.txt`；+58/-60 行；未作语义复核。
+- M `dlc/bp2/bp2_yearly_7.txt`；+79/-81 行；未作语义复核。
+- M `dlc/bp2/bp2_yearly_events_6.txt`；+238/-198 行；未作语义复核。
+- M `dlc/bp2/bp2_yearly_extra.txt`；+2/-2 行；未作语义复核。
+- M `dlc/bp2/story_cycles/story_cycle_pet_rock_events.txt`；+12/-12 行；未作语义复核。
+- M `dlc/bp3/bp3_journey_events.txt`；+200/-119 行；未作语义复核。
+- M `dlc/bp3/bp3_mapmaking.txt`；+2/-4 行；未作语义复核。
+- M `dlc/bp3/bp3_roaming_events.txt`；+42/-39 行；未作语义复核。
+- M `dlc/bp3/bp3_survey_events.txt`；+59/-28 行；未作语义复核。
+- M `dlc/ce1/epidemic_events.txt`；+814/-226 行；未作语义复核。
+- M `dlc/ce1/epidemic_events_2.txt`；+19/-19 行；未作语义复核。
+- M `dlc/ce1/legend_ending_events.txt`；+3/-0 行；未作语义复核。
+- M `dlc/ce1/legend_events.txt`；+11/-18 行；未作语义复核。
+- M `dlc/ce1/legend_spread_events_8.txt`；+90/-83 行；未作语义复核。
+- M `dlc/ce1/legend_spread_events_nick.txt`；+150/-148 行；未作语义复核。
+- M `dlc/ce1/legend_spread_events_veronica.txt`；+52/-55 行；未作语义复核。
+- M `dlc/ce1/physician_epidemic_events.txt`；+11/-11 行；未作语义复核。
+- M `dlc/ep1/ep1_character_interaction_events.txt`；+3/-3 行；未作语义复核。
+- M `dlc/ep1/ep1_decision_events.txt`；+39/-13 行；未作语义复核。
+- M `dlc/ep1/ep1_flavor_events.txt`；+86/-84 行；未作语义复核。
+- M `dlc/ep1/ep1_fund_inspiration_events.txt`；+381/-281 行；未作语义复核。
+- M `dlc/ep2/ep2_accolade_events.txt`；+16/-16 行；未作语义复核。
+- M `dlc/ep2/ep2_tournament_events.txt`；+259/-266 行；未作语义复核。
+- M `dlc/ep2/wedding_events/ep2_bloody_wedding_events.txt`；+10/-6 行；未作语义复核。
+- M `dlc/ep2/wedding_events/ep2_wedding_events.txt`；+317/-258 行；未作语义复核。
+- M `dlc/ep2/wedding_events/ep2_wedding_events_ewan.txt`；+48/-48 行；未作语义复核。
+- M `dlc/ep3/ep3_admin_events.txt`；+41/-29 行；未作语义复核。
+- M `dlc/ep3/ep3_akolouthos_events.txt`；+3/-0 行；未作语义复核。
+- M `dlc/ep3/ep3_camp_party_events.txt`；+52/-41 行；未作语义复核。
+- M `dlc/ep3/ep3_camp_temperament_events.txt`；+24/-24 行；未作语义复核。
+- M `dlc/ep3/ep3_contract_events.txt`；+545/-132 行；未作语义复核。
+- M `dlc/ep3/ep3_councillor_events.txt`；+11/-11 行；未作语义复核。
+- M `dlc/ep3/ep3_decisions_events.txt`；+286/-255 行；未作语义复核。
+- M `dlc/ep3/ep3_emperor_yearly_2.txt`；+186/-156 行；未作语义复核。
+- M `dlc/ep3/ep3_emperor_yearly_3.txt`；+83/-75 行；未作语义复核。
+- M `dlc/ep3/ep3_emperor_yearly_8.txt`；+39/-51 行；未作语义复核。
+- M `dlc/ep3/ep3_eparch_events.txt`；+27/-26 行；未作语义复核。
+- M `dlc/ep3/ep3_frankokratia_events.txt`；+200/-220 行；未作语义复核。
+- M `dlc/ep3/ep3_governor_yearly_3.txt`；+280/-224 行；未作语义复核。
+- M `dlc/ep3/ep3_governor_yearly_8.txt`；+70/-65 行；未作语义复核。
+- M `dlc/ep3/ep3_interactions_events.txt`；+191/-115 行；未作语义复核。
+- M `dlc/ep3/ep3_laamp_decision_events.txt`；+456/-550 行；未作语义复核。
+- M `dlc/ep3/ep3_laamp_events.txt`；+398/-366 行；未作语义复核。
+- M `dlc/ep3/ep3_laamp_events_8.txt`；+45/-40 行；未作语义复核。
+- M `dlc/ep3/ep3_laamp_flavor.txt`；+15/-11 行；未作语义复核。
+- M `dlc/ep3/ep3_laamp_flavor_oltner.txt`；+3/-3 行；未作语义复核。
+- M `dlc/ep3/ep3_laamp_flavour_ewan_events.txt`；+382/-353 行；未作语义复核。
+- M `dlc/ep3/ep3_laamps_provisions.txt`；+13/-13 行；未作语义复核。
+- M `dlc/ep3/ep3_landless_admin_events.txt`；+90/-85 行；未作语义复核。
+- M `dlc/ep3/ep3_powerful_families_8.txt`；+59/-44 行；未作语义复核。
+- M `dlc/ep3/ep3_roman_restoration_events.txt`；+37/-6 行；未作语义复核。
+- M `dlc/ep3/ep3_story_cycle_admin_eunuch_events.txt`；+95/-87 行；未作语义复核。
+- M `dlc/ep3/ep3_story_cycle_grand_ambitions_events.txt`；+93/-93 行；未作语义复核。
+- M `dlc/ep3/ep3_story_cycle_harrying_of_the_north_events.txt`；+92/-81 行；未作语义复核。
+- M `dlc/ep3/ep3_story_cycle_violet_poet_events.txt`；+59/-38 行；未作语义复核。
+- M `dlc/ep3/ep3_travel_events_3.txt`；+51/-68 行；未作语义复核。
+- M `dlc/ep3/ep3_travel_events_8.txt`；+7/-7 行；未作语义复核。
+- M `dlc/ep3/ep3_wedding_events.txt`；+95/-208 行；未作语义复核。
+- M `dlc/fp1/fp1_jomsvikings_events.txt`；+25/-25 行；未作语义复核。
+- M `dlc/fp1/fp1_major_decision_events.txt`；+10/-10 行；未作语义复核。
+- M `dlc/fp1/fp1_other_decision_events.txt`；+83/-114 行；未作语义复核。
+- M `dlc/fp1/fp1_scandinavian_adventurer_events.txt`；+3/-3 行；未作语义复核。
+- M `dlc/fp1/fp1_shieldmaiden_events.txt`；+9/-9 行；未作语义复核。
+- M `dlc/fp1/fp1_trade_events.txt`；+32/-32 行；未作语义复核。
+- M `dlc/fp1/fp1_trial_by_combat_events.txt`；+97/-55 行；未作语义复核。
+- M `dlc/fp1/fp1_yearly_events.txt`；+218/-215 行；未作语义复核。
+- M `dlc/fp1/fp1_yearly_events_oltner.txt`；+46/-45 行；未作语义复核。
+- M `dlc/fp2/fp2_el_cid_events.txt`；+4/-4 行；未作语义复核。
+- M `dlc/fp2/fp2_lyonese_monk_events.txt`；+182/-108 行；未作语义复核。
+- M `dlc/fp2/fp2_other_decision_events.txt`；+61/-113 行；未作语义复核。
+- M `dlc/fp2/fp2_struggle_events.txt`；+251/-219 行；未作语义复核。
+- M `dlc/fp2/fp2_yearly_events.txt`；+131/-118 行；未作语义复核。
+- M `dlc/fp3/fp3_clan_events_2000.txt`；+24/-21 行；未作语义复核。
+- M `dlc/fp3/fp3_clan_events_hugo.txt`；+4/-4 行；未作语义复核。
+- M `dlc/fp3/fp3_clan_events_ola.txt`；+37/-36 行；未作语义复核。
+- M `dlc/fp3/fp3_clan_events_persia_specific_ola.txt`；+13/-13 行；未作语义复核。
+- M `dlc/fp3/fp3_dynasty_decision_events.txt`；+8/-8 行；未作语义复核。
+- M `dlc/fp3/fp3_extra_flavor_events.txt`；+39/-37 行；未作语义复核。
+- M `dlc/fp3/fp3_frontier_story_cycle.txt`；+38/-34 行；未作语义复核。
+- M `dlc/fp3/fp3_heritage_events.txt`；+86/-83 行；未作语义复核。
+- M `dlc/fp3/fp3_misc_decision_events.txt`；+7/-5 行；未作语义复核。
+- M `dlc/fp3/fp3_religious_decision_events.txt`；+30/-30 行；未作语义复核。
+- M `dlc/fp3/fp3_scholarship_events.txt`；+55/-51 行；未作语义复核。
+- M `dlc/fp3/fp3_story_cycle_zanj_rebellion_events.txt`；+10/-9 行；未作语义复核。
+- M `dlc/fp3/fp3_struggle_events.txt`；+26/-14 行；未作语义复核。
+- M `dlc/fp3/fp3_tax_collector_events_ola.txt`；+19/-20 行；未作语义复核。
+- M `dlc/fp3/fp3_tax_collector_flavor_events.txt`；+10/-10 行；未作语义复核。
+- M `dlc/fp3/fp3_yearly_events_eren.txt`；+96/-91 行；未作语义复核。
+- M `dlc/fp3/fp3_yearly_events_hugo.txt`；+8/-8 行；未作语义复核。
+- M `dlc/fp3/fp3_yearly_events_ola_batch_1.txt`；+66/-75 行；未作语义复核。
+- M `dlc/fp3/fp3_yearly_frontier_chains.txt`；+9/-9 行；未作语义复核。
+- M `dlc/mpo/court_astrologer_events.txt`；+6/-6 行；未作语义复核。
+- M `dlc/mpo/mpo_decisions_events.txt`；+135/-102 行；未作语义复核。
+- M `dlc/mpo/mpo_events_anna.txt`；+30/-20 行；未作语义复核。
+- M `dlc/mpo/mpo_events_ariana.txt`；+51/-57 行；未作语义复核。
+- M `dlc/mpo/mpo_events_tova.txt`；+37/-25 行；未作语义复核。
+- M `dlc/mpo/mpo_flavor_events_settled.txt`；+18/-14 行；未作语义复核。
+- M `dlc/mpo/mpo_interactions_events.txt`；+40/-11 行；未作语义复核。
+- M `dlc/mpo/mpo_jamukha_flavor_events.txt`；+9/-6 行；未作语义复核。
+- M `dlc/mpo/mpo_migration_contract_events.txt`；+1/-0 行；未作语义复核。
+- M `dlc/mpo/mpo_migration_events.txt`；+97/-70 行；未作语义复核。
+- M `dlc/mpo/mpo_migration_travel_events.txt`；+24/-21 行；未作语义复核。
+- M `dlc/mpo/mpo_nomad_events_1.txt`；+77/-72 行；未作语义复核。
+- M `dlc/mpo/mpo_nomads_blood_brothers_windy.txt`；+1/-1 行；未作语义复核。
+- M `dlc/mpo/mpo_nomads_flavour_events.txt`；+146/-121 行；未作语义复核。
+- M `dlc/mpo/mpo_nomads_flavour_events_oltner.txt`；+6/-6 行；未作语义复核。
+- M `dlc/mpo/mpo_nomads_season_events.txt`；+8/-8 行；未作语义复核。
+- M `dlc/mpo/mpo_story_cycle_temujin_flavor_events.txt`；+86/-43 行；未作语义复核。
+- A `dlc/pam/heresy/pam_heresy_dangerous_rite_events.txt`；+640/-0 行；未作语义复核。
+- A `dlc/pam/heresy/pam_heresy_historical_events.txt`；+870/-0 行；未作语义复核。
+- A `dlc/pam/heresy/pam_heresy_light_events.txt`；+519/-0 行；未作语义复核。
+- A `dlc/pam/heresy/pam_heresy_pulse.txt`；+177/-0 行；未作语义复核。
+- A `dlc/pam/pam_adorcism_events.txt`；+194/-0 行；未作语义复核。
+- A `dlc/pam/pam_antipope_events.txt`；+978/-0 行；未作语义复核。
+- A `dlc/pam/pam_bull_events.txt`；+328/-0 行；未作语义复核。
+- A `dlc/pam/pam_christian_situation_events.txt`；+1332/-0 行；未作语义复核。
+- A `dlc/pam/pam_clergy_events.txt`；+972/-0 行；未作语义复核。
+- A `dlc/pam/pam_decision_events.txt`；+3485/-0 行；未作语义复核。
+- A `dlc/pam/pam_generic_events.txt`；+1899/-0 行；未作语义复核。
+- A `dlc/pam/pam_great_projects_events.txt`；+3305/-0 行；未作语义复核。
+- A `dlc/pam/pam_holy_myron_events.txt`；+722/-0 行；未作语义复核。
+- A `dlc/pam/pam_interactions_events.txt`；+5397/-0 行；未作语义复核。
+- A `dlc/pam/pam_kingdom_of_heaven_events.txt`；+54/-0 行；未作语义复核。
+- A `dlc/pam/pam_monastic_funeral_events.txt`；+118/-0 行；未作语义复核。
+- A `dlc/pam/pam_religious_artifact_events.txt`；+340/-0 行；未作语义复核。
+- A `dlc/pam/pam_ritual_celebrations_events.txt`；+286/-0 行；未作语义复核。
+- A `dlc/pam/pam_saint_events.txt`；+498/-0 行；未作语义复核。
+- A `dlc/pam/pam_secular_faith_events.txt`；+8442/-0 行；未作语义复核。
+- A `dlc/pam/pam_spread_tenet_activity_events.txt`；+844/-0 行；未作语义复核。
+- A `dlc/pam/pam_tenet_events.txt`；+802/-0 行；未作语义复核。
+- A `dlc/pam/pam_theocratic_budget_events.txt`；+25/-0 行；未作语义复核。
+- A `dlc/pam/pam_theocratic_ruler_events.txt`；+3144/-0 行；未作语义复核。
+- M `dlc/tgp/tgp_ceremonial_liege_events.txt`；+21/-21 行；未作语义复核。
+- M `dlc/tgp/tgp_child_personality_events.txt`；+381/-833 行；未作语义复核。
+- M `dlc/tgp/tgp_china_career_events.txt`；+1/-1 行；未作语义复核。
+- M `dlc/tgp/tgp_china_decision_events.txt`；+6/-5 行；未作语义复核。
+- M `dlc/tgp/tgp_china_ministry_events.txt`；+14/-3 行；未作语义复核。
+- M `dlc/tgp/tgp_china_yearly_events.txt`；+20/-18 行；未作语义复核。
+- M `dlc/tgp/tgp_commission_book.txt`；+7/-4 行；未作语义复核。
+- M `dlc/tgp/tgp_dynastic_cycle_events.txt`；+20/-4 行；未作语义复核。
+- M `dlc/tgp/tgp_dynastic_cycle_flavor_events.txt`；+22/-19 行；未作语义复核。
+- M `dlc/tgp/tgp_east_asia_decision_events.txt`；+1/-11 行；未作语义复核。
+- M `dlc/tgp/tgp_east_asia_interaction_events.txt`；+18/-11 行；未作语义复核。
+- M `dlc/tgp/tgp_faction_events.txt`；+2/-2 行；未作语义复核。
+- M `dlc/tgp/tgp_genpei_character_events.txt`；+10/-17 行；未作语义复核。
+- M `dlc/tgp/tgp_governor_contract_events.txt`；+14/-0 行；未作语义复核。
+- M `dlc/tgp/tgp_governor_contract_events_2000.txt`；+3/-2 行；未作语义复核。
+- M `dlc/tgp/tgp_house_blocs.txt`；+9/-2 行；未作语义复核。
+- M `dlc/tgp/tgp_interaction_events.txt`；+4/-4 行；未作语义复核。
+- M `dlc/tgp/tgp_japan_decision_events.txt`；+19/-54 行；未作语义复核。
+- M `dlc/tgp/tgp_japan_general_events.txt`；+16/-15 行；未作语义复核。
+- M `dlc/tgp/tgp_japan_yearly_events.txt`；+104/-90 行；未作语义复核。
+- M `dlc/tgp/tgp_japan_yearly_events_ariana.txt`；+93/-84 行；未作语义复核。
+- M `dlc/tgp/tgp_mandala_capital_events.txt`；+1/-0 行；未作语义复核。
+- M `dlc/tgp/tgp_mandala_devaraja_events.txt`；+27/-18 行；未作语义复核。
+- M `dlc/tgp/tgp_mandala_events.txt`；+28/-13 行；未作语义复核。
+- M `dlc/tgp/tgp_mandala_task_contract_events.txt`；+116/-59 行；未作语义复核。
+- M `dlc/tgp/tgp_movement_events.txt`；+68/-61 行；未作语义复核。
+- M `dlc/tgp/tgp_natural_disaster_flavor_events.txt`；+13/-12 行；未作语义复核。
+- M `dlc/tgp/tgp_silk_road_events.txt`；+1/-1 行；未作语义复核。
+- M `dlc/tgp/tgp_tai_migration_events.txt`；+5/-4 行；未作语义复核。
+- M `dlc/tgp/tgp_travel_danger_events.txt`；+5/-4 行；未作语义复核。
+- M `dlc/tgp/tgp_tribute_mission_events.txt`；+80/-43 行；未作语义复核。
+- M `education_and_childhood/child_personality_events.txt`；+422/-592 行；未作语义复核。
+- M `education_and_childhood/child_personality_events_2.txt`；+313/-658 行；未作语义复核。
+- M `education_and_childhood/childhood_education_events.txt`；+18/-18 行；未作语义复核。
+- M `education_and_childhood/childhood_events.txt`；+95/-83 行；未作语义复核。
+- M `education_and_childhood/childhood_events_oltner.txt`；+29/-30 行；未作语义复核。
+- M `education_and_childhood/chinese_disciple_events.txt`；+21/-21 行；未作语义复核。
+- M `education_and_childhood/coming_of_age_events.txt`；+91/-7 行；未作语义复核。
+- M `elder_events.txt`；+6/-6 行；未作语义复核。
+- A `empire_faith_gate_events.txt`；+278/-0 行；已复核关键定义/差异。
+- M `error_suppression_events.txt`；+84/-2 行；未作语义复核。
+- M `factions/faction_demands.txt`；+24/-61 行；未作语义复核。
+- M `game_rule_events.txt`；+19/-19 行；未作语义复核。
+- M `global_religion_events.txt`；+230/-112 行；未作语义复核。
+- M `government_events/clan_events.txt`；+4/-3 行；未作语义复核。
+- M `harm_events.txt`；+138/-133 行；未作语义复核。
+- M `health_events.txt`；+196/-142 行；未作语义复核。
+- M `historical_character_events.txt`；+19/-24 行；未作语义复核。
+- M `interaction_events/bastard_interaction_events.txt`；+5/-5 行；未作语义复核。
+- M `interaction_events/character_interaction_events.txt`；+255/-152 行；未作语义复核。
+- A `interaction_events/demand_church_succession_events.txt`；+243/-0 行；未作语义复核。
+- M `interaction_events/marriage_interaction_events.txt`；+27/-27 行；未作语义复核。
+- M `interaction_events/perk_interaction_events.txt`；+2/-2 行；未作语义复核。
+- M `interaction_events/vassal_interaction_events.txt`；+6/-6 行；未作语义复核。
+- M `jester_stress_relief_events.txt`；+54/-54 行；未作语义复核。
+- M `lifestyles/commission_epic_events.txt`；+39/-37 行；未作语义复核。
+- M `lifestyles/governance_lifestyle/stewardship_domain_events.txt`；+112/-117 行；未作语义复核。
+- M `lifestyles/governance_lifestyle/stewardship_duty_events.txt`；+69/-72 行；未作语义复核。
+- M `lifestyles/governance_lifestyle/stewardship_general_events.txt`；+186/-243 行；未作语义复核。
+- M `lifestyles/governance_lifestyle/stewardship_wealth_events.txt`；+54/-61 行；未作语义复核。
+- M `lifestyles/intrigue_lifestyle/intrigue_dread_events.txt`；+80/-76 行；未作语义复核。
+- M `lifestyles/intrigue_lifestyle/intrigue_scheming_events.txt`；+52/-68 行；未作语义复核。
+- M `lifestyles/intrigue_lifestyle/intrigue_temptation_events.txt`；+61/-68 行；未作语义复核。
+- M `lifestyles/intrigue_lifestyle/intrigue_temptation_events_2.txt`；+85/-139 行；未作语义复核。
+- M `lifestyles/mystic_lifestyle_events.txt`；+26/-4 行；未作语义复核。
+- M `lifestyles/scholarship_lifestyle/learning_medicine_events.txt`；+74/-73 行；未作语义复核。
+- M `lifestyles/scholarship_lifestyle/learning_scholarship_events.txt`；+73/-63 行；未作语义复核。
+- M `lifestyles/scholarship_lifestyle/learning_theology_events.txt`；+95/-79 行；未作语义复核。
+- M `lifestyles/sell_titles_events.txt`；+11/-6 行；未作语义复核。
+- M `lifestyles/statecraft_lifestyle/diplomacy_family_events.txt`；+52/-64 行；未作语义复核。
+- M `lifestyles/statecraft_lifestyle/diplomacy_foreign_events.txt`；+88/-89 行；未作语义复核。
+- M `lifestyles/statecraft_lifestyle/diplomacy_generic_events.txt`；+10/-9 行；未作语义复核。
+- M `lifestyles/statecraft_lifestyle/diplomacy_majesty_events.txt`；+39/-39 行；未作语义复核。
+- M `lifestyles/wanderer_lifestyle/wanderer_destination_events.txt`；+9/-24 行；未作语义复核。
+- M `lifestyles/wanderer_lifestyle/wanderer_generic_events.txt`；+17/-15 行；未作语义复核。
+- M `lifestyles/wanderer_lifestyle/wanderer_internal_affairs_events.txt`；+18/-17 行；未作语义复核。
+- M `lifestyles/wanderer_lifestyle/wanderer_journey_events.txt`；+14/-13 行；未作语义复核。
+- M `lifestyles/warfare_lifestyle/historical_commander_trait_events.txt`；+33/-33 行；未作语义复核。
+- M `lifestyles/warfare_lifestyle/learn_commander_trait_events.txt`；+404/-1833 行；未作语义复核。
+- M `lifestyles/warfare_lifestyle/martial_authority_events.txt`；+47/-33 行；未作语义复核。
+- M `lifestyles/warfare_lifestyle/martial_authority_events_2.txt`；+2/-2 行；未作语义复核。
+- M `lifestyles/warfare_lifestyle/martial_chivalry_events.txt`；+338/-102 行；未作语义复核。
+- M `lifestyles/warfare_lifestyle/martial_strategy_events.txt`；+31/-30 行；未作语义复核。
+- M `lifestyles/warfare_lifestyle/martial_strategy_events_2.txt`；+8/-8 行；未作语义复核。
+- M `lifestyles/warfare_lifestyle/warhorse_events.txt`；+6/-6 行；未作语义复核。
+- M `marriage_effect_events.txt`；+34/-33 行；未作语义复核。
+- M `mpo_chaotic_kurultai_succession.txt`；+1/-0 行；未作语义复核。
+- M `mpo_flavor_events.txt`；+2/-2 行；未作语义复核。
+- M `nickname_events/nickname_events.txt`；+10/-10 行；未作语义复核。
+- M `notification_events/ep1_notification_events.txt`；+1/-0 行；未作语义复核。
+- A `passive_rite_learning_events/passive_rite_learning_travel_events.txt`；+189/-0 行；未作语义复核。
+- M `pregnancy_events.txt`；+23/-22 行；未作语义复核。
+- M `prison_events/dungeon_ongoing_events.txt`；+25/-25 行；未作语义复核。
+- M `prison_events/house_arrest_ongoing_events.txt`；+17/-24 行；未作语义复核。
+- M `prison_events/prison_events.txt`；+70/-43 行；未作语义复核。
+- M `realm_maintenance_events.txt`；+1/-1 行；未作语义复核。
+- M `relations_events/adultery_events.txt`；+36/-35 行；未作语义复核。
+- M `relations_events/bishop_events.txt`；+31/-24 行；未作语义复核。
+- M `relations_events/friendship_events.txt`；+72/-75 行；未作语义复核。
+- M `relations_events/lover_events.txt`；+78/-132 行；未作语义复核。
+- M `relations_events/parent_events.txt`；+7/-7 行；未作语义复核。
+- M `relations_events/relation_upgrade_events.txt`；+49/-49 行；未作语义复核。
+- M `relations_events/rivalry_events.txt`；+17/-17 行；未作语义复核。
+- M `relations_events/sibling_events.txt`；+24/-26 行；未作语义复核。
+- M `relations_events/spouse_events.txt`；+31/-15 行；未作语义复核。
+- M `relations_events/vassal_events.txt`；+135/-79 行；未作语义复核。
+- M `religion_events/faith_conversion_events.txt`；+172/-100 行；未作语义复核。
+- M `religion_events/faith_creation_events.txt`；+840/-95 行；未作语义复核。
+- M `religion_events/false_conversion_events.txt`；+47/-46 行；未作语义复核。
+- D `religion_events/fervor_events.txt`；+0/-1938 行；未作语义复核。
+- M `religion_events/great_holy_war_events.txt`；+219/-84 行；未作语义复核。
+- A `religion_events/great_schism_events.txt`；+80/-0 行；未作语义复核。
+- M `religion_events/head_of_faith_events.txt`；+286/-86 行；未作语义复核。
+- M `religion_events/heresy_events.txt`；+1/-1355 行；未作语义复核。
+- M `religion_events/holy_order_events.txt`；+3219/-72 行；未作语义复核。
+- M `religion_events/human_sacrifice_events.txt`；+4/-3 行；未作语义复核。
+- M `religion_events/jewish_events.txt`；+1/-1 行；未作语义复核。
+- M `religion_events/local_shrine_events.txt`；+8/-13 行；未作语义复核。
+- A `religion_events/natural_primitivism_events.txt`；+300/-0 行；未作语义复核。
+- A `religion_events/petition_head_of_faith_events.txt`；+1820/-0 行；未作语义复核。
+- M `religion_events/religious_decision_events.txt`；+205/-130 行；未作语义复核。
+- M `religion_events/religious_interaction_events.txt`；+814/-90 行；未作语义复核。
+- A `religion_events/rite_growth_events.txt`；+668/-0 行；未作语义复核。
+- M `scheme_events/adbuct_scheme/abduct_outcome_events.txt`；+90/-6 行；未作语义复核。
+- M `scheme_events/agent_events.txt`；+46/-41 行；未作语义复核。
+- M `scheme_events/befriend_scheme/befriend_ongoing_dislike_events.txt`；+15/-15 行；未作语义复核。
+- M `scheme_events/befriend_scheme/befriend_ongoing_events.txt`；+133/-132 行；未作语义复核。
+- M `scheme_events/befriend_scheme/befriend_ongoing_rival_events.txt`；+1/-1 行；未作语义复核。
+- M `scheme_events/befriend_scheme/befriend_scheme_outcome_events.txt`；+31/-11 行；未作语义复核。
+- M `scheme_events/claim_throne_scheme/claim_throne_ongoing_events.txt`；+13/-10 行；未作语义复核。
+- M `scheme_events/claim_throne_scheme/claim_throne_outcome_events.txt`；+9/-9 行；未作语义复核。
+- M `scheme_events/court_scheme/court_scheme_ongoing_events.txt`；+45/-44 行；未作语义复核。
+- M `scheme_events/court_scheme/court_scheme_outcome_events.txt`；+13/-7 行；未作语义复核。
+- M `scheme_events/diplomatic_scheme_lifestyle_events.txt`；+4/-4 行；未作语义复核。
+- M `scheme_events/elope_scheme/elope_scheme_events.txt`；+8/-8 行；未作语义复核。
+- M `scheme_events/fabricate_hook_scheme/fabricate_hook_ongoing_events.txt`；+1/-1 行；未作语义复核。
+- M `scheme_events/fabricate_hook_scheme/fabricate_hook_outcome_events.txt`；+40/-15 行；未作语义复核。
+- M `scheme_events/governor_contract_events.txt`；+18/-9 行；未作语义复核。
+- M `scheme_events/intrigue_scheme_lifestyle_events.txt`；+2/-2 行；未作语义复核。
+- M `scheme_events/intrigue_scheme_ongoing_events.txt`；+51/-44 行；未作语义复核。
+- M `scheme_events/laamp_base_contract_scheme_events.txt`；+328/-320 行；未作语义复核。
+- M `scheme_events/laamp_base_learning_contract_events.txt`；+42/-26 行；未作语义复核。
+- M `scheme_events/laamp_extra_contract_scheme_events.txt`；+10/-10 行；未作语义复核。
+- M `scheme_events/learn_language_scheme/learn_language_ongoing_events.txt`；+55/-62 行；未作语义复核。
+- M `scheme_events/learn_language_scheme/learn_language_outcome_events.txt`；+29/-9 行；未作语义复核。
+- M `scheme_events/mandala_schemes/coerce_and_leverage_contribution_scheme_events.txt`；+11/-8 行；未作语义复核。
+- M `scheme_events/mandala_schemes/coerce_tributary_scheme_events.txt`；+5/-5 行；未作语义复核。
+- M `scheme_events/mandala_schemes/disbelieve_mandala_scheme_events.txt`；+6/-6 行；未作语义复核。
+- M `scheme_events/murder_scheme/assassination_ongoing_events.txt`；+41/-44 行；未作语义复核。
+- M `scheme_events/murder_scheme/murder_ongoing_events.txt`；+2/-2 行；未作语义复核。
+- M `scheme_events/murder_scheme/murder_outcome_events.txt`；+10/-10 行；未作语义复核。
+- M `scheme_events/murder_scheme/murder_outcome_reworked_events.txt`；+5/-3 行；未作语义复核。
+- M `scheme_events/murder_scheme/murder_save_events.txt`；+5/-5 行；未作语义复核。
+- M `scheme_events/murder_scheme/murder_scheme_maintenance_events.txt`；+6/-18 行；未作语义复核。
+- M `scheme_events/personal_scheme_ongoing_events.txt`；+3/-3 行；未作语义复核。
+- M `scheme_events/scheme_critical_moments_events.txt`；+155/-198 行；未作语义复核。
+- M `scheme_events/seduce_scheme/seduce_ongoing_events.txt`；+17/-17 行；未作语义复核。
+- M `scheme_events/seduce_scheme/seduce_scheme_outcome_events.txt`；+136/-50 行；未作语义复核。
+- M `scheme_events/steal_back_artifact_scheme/steal_back_artifact_ongoing_events.txt`；+2/-2 行；未作语义复核。
+- M `scheme_events/steal_herd_scheme/steal_herd_ongoing_events.txt`；+7/-5 行；未作语义复核。
+- M `scheme_events/steal_herd_scheme/steal_herd_outcome_events.txt`；+3/-3 行；未作语义复核。
+- M `scheme_events/study_confucian_classics_scheme/study_confucian_classics_events.txt`；+39/-39 行；未作语义复核。
+- A `scheme_events/study_faith_scheme/study_faith_ongoing_events.txt`；+4300/-0 行；未作语义复核。
+- A `scheme_events/study_faith_scheme/study_faith_outcome_events.txt`；+1384/-0 行；未作语义复核。
+- A `scheme_events/study_scripture_scheme/study_scripture_events.txt`；+4190/-0 行；未作语义复核。
+- M `scheme_events/sway_scheme/sway_ongoing_events.txt`；+43/-40 行；未作语义复核。
+- M `scheme_events/sway_scheme/sway_outcome_events.txt`；+15/-8 行；未作语义复核。
+- M `scheme_events/tgp_governor_contract_events_tova.txt`；+1/-0 行；未作语义复核。
+- M `secret_events/secrets_events.txt`；+135/-76 行；未作语义复核。
+- M `siege_events.txt`；+168/-28 行；未作语义复核。
+- M `single_combat_events.txt`；+79/-77 行；未作语义复核。
+- M `situation_events/mpo_the_great_steppe_events.txt`；+25/-3 行；未作语义复核。
+- M `situation_events/tgp_natural_disaster_events.txt`；+8/-5 行；未作语义复核。
+- M `story_cycles/ep3_story_cycle_el_cid.txt`；+15/-4 行；未作语义复核。
+- M `story_cycles/ep3_story_cycle_hasan.txt`；+79/-58 行；未作语义复核。
+- M `story_cycles/fp2_story_cycle_bell_of_huesca.txt`；+4/-8 行；未作语义复核。
+- M `story_cycles/murders_at_court/story_cycle_murders_at_court_events.txt`；+23/-1 行；未作语义复核。
+- A `story_cycles/pam_story_cycle_slavic_rite_events.txt`；+1236/-0 行；未作语义复核。
+- M `story_cycles/peasant_affair/story_cycle_peasant_affair_events.txt`；+25/-22 行；未作语义复核。
+- M `story_cycles/story_cycle_conqueror_events.txt`；+6/-1 行；未作语义复核。
+- M `story_cycles/story_cycle_hunt_mystical_animal_events.txt`；+16/-6 行；未作语义复核。
+- M `story_cycles/story_cycle_infidelity_confrontation_events.txt`；+19/-19 行；未作语义复核。
+- M `story_cycles/story_cycle_mongol_invasion_events.txt`；+1/-0 行；未作语义复核。
+- M `story_cycles/story_cycle_party_baron_events.txt`；+8/-8 行；未作语义复核。
+- M `story_cycles/story_cycle_pet_animal_events.txt`；+87/-47 行；未作语义复核。
+- M `story_cycles/story_cycle_tax_rivalry_events.txt`；+21/-23 行；未作语义复核。
+- M `stress_events/stress_threshold_events.txt`；+607/-376 行；未作语义复核。
+- M `stress_events/stress_threshold_prison_events.txt`；+25/-24 行；未作语义复核。
+- M `stress_events/stress_threshold_special_events.txt`；+19/-14 行；未作语义复核。
+- M `stress_events/stress_trait_coping_decisions_events.txt`；+90/-27 行；未作语义复核。
+- M `stress_events/stress_trait_ongoing_events.txt`；+32/-34 行；未作语义复核。
+- M `test_events/debug.txt`；+31/-32 行；未作语义复核。
+- M `title_events.txt`；+75/-22 行；未作语义复核。
+- M `trait_specific_events/trait_specific_events.txt`；+22/-16 行；未作语义复核。
+- M `trait_specific_events/trait_specific_interaction_events.txt`；+6/-6 行；未作语义复核。
+- M `trait_specific_events/trait_specific_ongoing_events.txt`；+68/-23 行；未作语义复核。
+- M `travel_events/test_events.txt`；+2/-2 行；未作语义复核。
+- M `travel_events/tgp_travel_events.txt`；+30/-30 行；未作语义复核。
+- M `travel_events/travel_completion_events.txt`；+1/-10 行；未作语义复核。
+- M `travel_events/travel_danger_events.txt`；+29/-17 行；未作语义复核。
+- M `travel_events/travel_danger_events_ariana.txt`；+17/-17 行；未作语义复核。
+- M `travel_events/travel_danger_events_arky.txt`；+12/-12 行；未作语义复核。
+- M `travel_events/travel_danger_events_chad.txt`；+5/-5 行；未作语义复核。
+- M `travel_events/travel_danger_events_dan.txt`；+5/-5 行；未作语义复核。
+- M `travel_events/travel_danger_events_filippa.txt`；+17/-17 行；未作语义复核。
+- M `travel_events/travel_danger_events_joe.txt`；+44/-30 行；未作语义复核。
+- M `travel_events/travel_danger_events_klank.txt`；+36/-21 行；未作语义复核。
+- M `travel_events/travel_danger_events_oltner.txt`；+6/-6 行；未作语义复核。
+- M `travel_events/travel_events.txt`；+174/-154 行；未作语义复核。
+- M `travel_events/travel_events_bjorn.txt`；+4/-4 行；未作语义复核。
+- M `travel_events/travel_events_bp3.txt`；+133/-190 行；未作语义复核。
+- M `travel_events/travel_events_cities.txt`；+41/-38 行；未作语义复核。
+- M `travel_events/travel_events_cultural_traditions.txt`；+40/-35 行；未作语义复核。
+- M `travel_events/travel_events_filippa.txt`；+1114/-297 行；未作语义复核。
+- M `travel_events/travel_events_fp3.txt`；+61/-56 行；未作语义复核。
+- M `travel_events/travel_events_james.txt`；+270/-290 行；未作语义复核。
+- M `travel_events/travel_events_mpo.txt`；+11/-11 行；未作语义复核。
+- M `travel_events/travel_events_oltner_2.txt`；+131/-181 行；未作语义复核。
+- M `travel_events/travel_events_veronica.txt`；+142/-133 行；未作语义复核。
+- M `travel_events/travel_start_events.txt`；+19/-10 行；未作语义复核。
+- A `uprising_events/emelie_events.txt`；+328/-0 行；未作语义复核。
+- M `varangian_events.txt`；+17/-37 行；未作语义复核。
+- M `war_events/combat_events.txt`；+6/-9 行；未作语义复核。
+- M `war_events/raid_events.txt`；+74/-28 行；未作语义复核。
+- M `war_events/war_events.txt`；+4/-14 行；未作语义复核。
+- M `witch_events.txt`；+173/-58 行；未作语义复核。
+- M `yearly_events/bp1_yearly_james.txt`；+242/-272 行；未作语义复核。
+- M `yearly_events/bp1_yearly_jason.txt`；+67/-143 行；未作语义复核。
+- M `yearly_events/court_yearly_events.txt`；+136/-101 行；未作语义复核。
+- M `yearly_events/yearly_events.txt`；+34/-32 行；未作语义复核。
+- M `yearly_events/yearly_events_2.txt`；+102/-105 行；未作语义复核。
+- M `yearly_events/yearly_events_3.txt`；+29/-23 行；未作语义复核。
+- M `yearly_events/yearly_events_4.txt`；+25/-22 行；未作语义复核。
+- M `yearly_events/yearly_events_5.txt`；+104/-110 行；未作语义复核。
+- M `yearly_events/yearly_events_6.txt`；+19/-13 行；未作语义复核。
+- M `yearly_events/yearly_events_7.txt`；+51/-53 行；未作语义复核。
+- M `yearly_events/yearly_events_persia.txt`；+3/-3 行；未作语义复核。
+- M `yearly_events/yearly_events_sahara.txt`；+28/-43 行；未作语义复核。
+
+#### game/gui/（169 个变化路径）
+
+- A `activity_planner_widgets/activity_planner_tenet_doctrine_selection.gui`；+593/-0 行；未作语义复核。
+- M `activity_window_widgets/chariot_race_widget_types.gui`；+3/-3 行；未作语义复核。
+- M `activity_window_widgets/coronation_supporter_detractor_widget.gui`；+279/-9 行；未作语义复核。
+- M `activity_window_widgets/coronation_widget_types.gui`；+4/-2 行；未作语义复核。
+- M `activity_window_widgets/imperial_examination_widget_types.gui`；+4/-4 行；未作语义复核。
+- M `activity_window_widgets/tournament_contest_information.gui`；+1/-1 行；未作语义复核。
+- M `activity_window_widgets/tournament_contest_selection.gui`；+1/-1 行；未作语义复核。
+- M `activity_window_widgets/tournament_widget_types.gui`；+3/-3 行；未作语义复核。
+- M `debug/placeholder_types_templates.gui`；+315/-329 行；未作语义复核。
+- M `debug/window_component_library.gui`；+1/-1 行；未作语义复核。
+- A `decision_view_widgets/decision_view_generic_title_selector_widget.gui`；+58/-0 行；未作语义复核。
+- M `decision_view_widgets/decision_view_widget_create_holy_order.gui`；+12/-12 行；未作语义复核。
+- A `decision_view_widgets/decision_view_widget_petition_head_of_faith.gui`；+84/-0 行；未作语义复核。
+- A `decision_view_widgets/decision_view_widget_select_artifact.gui`；+76/-0 行；未作语义复核。
+- A `decision_view_widgets/decision_view_widget_select_character.gui`；+68/-0 行；未作语义复核。
+- A `decision_view_widgets/decision_view_widget_select_holy_site.gui`；+73/-0 行；未作语义复核。
+- A `decision_view_widgets/decision_view_widget_select_realm_county.gui`；+73/-0 行；未作语义复核。
+- A `decision_view_widgets/decision_view_widget_select_rite.gui`；+67/-0 行；未作语义复核。
+- A `decision_view_widgets/decision_view_widget_select_tenet.gui`；+68/-0 行；未作语义复核。
+- A `decision_view_widgets/decision_view_widget_select_title.gui`；+6/-0 行；未作语义复核。
+- A `event_window_widgets/event_window_widget_name_pope.gui`；+85/-0 行；未作语义复核。
+- A `event_window_widgets/event_window_widget_rite.gui`；+69/-0 行；未作语义复核。
+- A `event_window_widgets/event_window_widget_rite_founder.gui`；+8/-0 行；未作语义复核。
+- A `event_window_widgets/event_window_widget_rite_new_pope.gui`；+8/-0 行；未作语义复核。
+- M `event_window_widgets/event_window_widget_situation_info.gui`；+1/-1 行；未作语义复核。
+- A `event_window_widgets/event_window_widget_situation_info_christian_church.gui`；+196/-0 行；未作语义复核。
+- A `event_window_widgets/event_window_widget_vfx_background_double_vision_milder.gui`；+13/-0 行；未作语义复核。
+- A `event_window_widgets/event_window_widget_vfx_background_double_vision_severe.gui`；+13/-0 行；未作语义复核。
+- A `event_window_widgets/event_window_widget_vfx_background_flickering_candlelight.gui`；+13/-0 行；未作语义复核。
+- A `event_window_widgets/event_window_widget_vfx_background_flickering_candlelight_dark.gui`；+13/-0 行；未作语义复核。
+- A `event_window_widgets/event_window_widget_vfx_background_night_scene.gui`；+12/-0 行；未作语义复核。
+- A `event_window_widgets/event_window_widget_vfx_left_character_double_vision_milder.gui`；+15/-0 行；未作语义复核。
+- A `event_window_widgets/event_window_widget_vfx_left_character_double_vision_severe.gui`；+15/-0 行；未作语义复核。
+- A `event_window_widgets/event_window_widget_vfx_left_character_flickering_candlelight.gui`；+15/-0 行；未作语义复核。
+- A `event_window_widgets/event_window_widget_vfx_left_character_flickering_candlelight_dark.gui`；+15/-0 行；未作语义复核。
+- A `event_window_widgets/event_window_widget_vfx_left_character_night_scene.gui`；+15/-0 行；未作语义复核。
+- A `event_window_widgets/event_window_widget_vfx_right_character_double_vision_milder.gui`；+15/-0 行；未作语义复核。
+- A `event_window_widgets/event_window_widget_vfx_right_character_double_vision_severe.gui`；+15/-0 行；未作语义复核。
+- A `event_window_widgets/event_window_widget_vfx_right_character_flickering_candlelight.gui`；+15/-0 行；未作语义复核。
+- A `event_window_widgets/event_window_widget_vfx_right_character_flickering_candlelight_dark.gui`；+15/-0 行；未作语义复核。
+- A `event_window_widgets/event_window_widget_vfx_right_character_night_scene.gui`；+15/-0 行；未作语义复核。
+- A `event_window_widgets/event_window_widget_vfx_stained_glass.gui`；+9/-0 行；未作语义复核。
+- A `event_window_widgets/event_window_widget_vfx_stained_glass_foreground.gui`；+9/-0 行；未作语义复核。
+- M `event_windows/anonymous_letter_event.gui`；+1/-25 行；未作语义复核。
+- M `event_windows/big_event_window.gui`；+292/-302 行；未作语义复核。
+- M `event_windows/character_event.gui`；+12/-5 行；未作语义复核。
+- M `event_windows/duel_event.gui`；+4/-4 行；未作语义复核。
+- M `event_windows/fullscreen_event.gui`；+164/-15 行；未作语义复核。
+- M `event_windows/letter_event.gui`；+1/-25 行；未作语义复核。
+- M `event_windows/scheme_conclusion_event_no_header.gui`；+1/-0 行；未作语义复核。
+- M `event_windows/scheme_preparations_event.gui`；+4/-25 行；未作语义复核。
+- M `frontend_bookmarks.gui`；+44/-4 行；未作语义复核。
+- M `frontend_ingame_menu.gui`；+5/-0 行；未作语义复核。
+- M `frontend_load.gui`；+32/-11 行；未作语义复核。
+- M `frontend_main.gui`；+1/-0 行；未作语义复核。
+- M `hud.gui`；+947/-443 行；未作语义复核。
+- M `hud_bottom.gui`；+28/-390 行；未作语义复核。
+- M `hud_notification_templates.gui`；+109/-1 行；未作语义复核。
+- M `interaction_concubine.gui`；+1/-1 行；未作语义复核。
+- M `interaction_confirmation.gui`；+120/-20 行；未作语义复核。
+- M `interaction_council_task.gui`；+1/-1 行；未作语义复核。
+- M `interaction_court_task.gui`；+2/-2 行；未作语义复核。
+- M `interaction_create_claimant_faction.gui`；+4/-4 行；未作语义复核。
+- M `interaction_declare_war.gui`；+105/-77 行；未作语义复核。
+- M `interaction_grant_titles.gui`；+48/-3 行；未作语义复核。
+- M `interaction_marriage.gui`；+1/-1 行；未作语义复核。
+- M `interaction_menu_window.gui`；+426/-179 行；未作语义复核。
+- M `interaction_revoke_title.gui`；+13/-2 行；未作语义复核。
+- M `interaction_templates.gui`；+128/-81 行；未作语义复核。
+- M `map_icon_layer.gui`；+518/-35 行；未作语义复核。
+- M `multiplayer_lobby.gui`；+18/-16 行；未作语义复核。
+- M `pdx_account/login_window.gui`；+1/-1 行；未作语义复核。
+- M `preload/defaults.gui`；+11/-0 行；未作语义复核。
+- M `shared/animation.gui`；+11/-0 行；未作语义复核。
+- M `shared/buttons.gui`；+1836/-1498 行；未作语义复核。
+- M `shared/coat_of_arms.gui`；+251/-103 行；未作语义复核。
+- M `shared/cooltip.gui`；+1018/-144 行；未作语义复核。
+- M `shared/event_windows.gui`；+173/-35 行；未作语义复核。
+- M `shared/icons.gui`；+10/-32 行；未作语义复核。
+- M `shared/lists.gui`；+70/-19 行；未作语义复核。
+- M `shared/mapmodes.gui`；+343/-53 行；未作语义复核。
+- M `shared/misc_components.gui`；+337/-2 行；未作语义复核。
+- M `shared/portraits.gui`；+180/-11 行；未作语义复核。
+- M `shared/progressbars.gui`；+119/-18 行；未作语义复核。
+- M `shared/sounds.gui`；+338/-237 行；未作语义复核。
+- A `shared/succession_election_widgets.gui`；+212/-0 行；未作语义复核。
+- M `shared/texticons_religion.gui`；+245/-164 行；未作语义复核。
+- M `shared/value_breakdown.gui`；+173/-11 行；未作语义复核。
+- A `shared/vertical_progressbars.gui`；+452/-0 行；未作语义复核。
+- M `shortcuts.shortcuts`；+15/-1 行；未作语义复核。
+- M `texticons.gui`；+260/-15 行；未作语义复核。
+- M `texticons_religion.gui`；+20/-0 行；未作语义复核。
+- M `window_accolade.gui`；+33/-0 行；未作语义复核。
+- M `window_activity.gui`；+68/-4 行；未作语义复核。
+- M `window_activity_guest_list.gui`；+4/-1 行；未作语义复核。
+- M `window_activity_list.gui`；+80/-77 行；未作语义复核。
+- M `window_activity_planner.gui`；+217/-13 行；未作语义复核。
+- M `window_admin_vassal_detail.gui`；+252/-122 行；未作语义复核。
+- M `window_appoint_tax_collector.gui`；+1/-1 行；未作语义复核。
+- M `window_army.gui`；+1/-1 行；未作语义复核。
+- M `window_army_select_commander.gui`；+2/-2 行；未作语义复核。
+- M `window_artifact_details.gui`；+41/-10 行；未作语义复核。
+- M `window_barbershop.gui`；+2/-2 行；未作语义复核。
+- M `window_battle_summary.gui`；+2/-2 行；未作语义复核。
+- A `window_cardinals.gui`；+918/-0 行；未作语义复核。
+- M `window_character.gui`；+533/-384 行；未作语义复核。
+- M `window_character_filter.gui`；+31/-1 行；未作语义复核。
+- M `window_character_lifestyle.gui`；+5/-5 行；未作语义复核。
+- M `window_confederation.gui`；+2/-2 行；未作语义复核。
+- M `window_council.gui`；+37/-23 行；未作语义复核。
+- M `window_county_view.gui`；+36/-29 行；未作语义复核。
+- M `window_court_positions.gui`；+0/-1 行；未作语义复核。
+- M `window_culture.gui`；+6/-6 行；未作语义复核。
+- M `window_decisions.gui`；+68/-7 行；未作语义复核。
+- M `window_decisions_detail.gui`；+10/-9 行；未作语义复核。
+- M `window_diverge_culture.gui`；+1/-1 行；未作语义复核。
+- M `window_domicile.gui`；+25/-4 行；未作语义复核。
+- M `window_dynasty_legacy.gui`；+1/-1 行；未作语义复核。
+- M `window_dynasty_tree.gui`；+9/-0 行；未作语义复核。
+- M `window_factions.gui`；+1/-1 行；未作语义复核。
+- M `window_faith.gui`；+5662/-1104 行；未作语义复核。
+- M `window_faith_conversion.gui`；+62/-29 行；未作语义复核。
+- D `window_faith_creation.gui`；+0/-1449 行；未作语义复核。
+- M `window_find_title.gui`；+1/-1 行；未作语义复核。
+- M `window_find_vassal.gui`；+2/-2 行；未作语义复核。
+- A `window_geographical_regions.gui`；+140/-0 行；未作语义复核。
+- M `window_government_administration.gui`；+30/-22 行；未作语义复核。
+- M `window_great_project.gui`；+9/-7 行；未作语义复核。
+- M `window_hired_troops_detail.gui`；+205/-198 行；未作语义复核。
+- A `window_holy_site.gui`；+1278/-0 行；未作语义复核。
+- A `window_holy_site_creation.gui`；+900/-0 行；未作语义复核。
+- M `window_hybridize_culture.gui`；+13/-1 行；未作语义复核。
+- M `window_intrigue.gui`；+1801/-924 行；未作语义复核。
+- M `window_inventory.gui`；+95/-20 行；未作语义复核。
+- M `window_knights.gui`；+134/-133 行；未作语义复核。
+- M `window_lease_out_baronies.gui`；+1/-1 行；未作语义复核。
+- M `window_ledger.gui`；+735/-126 行；未作语义复核。
+- M `window_manage_tax_slots.gui`；+1/-1 行；未作语义复核。
+- M `window_message_popup.gui`；+50/-0 行；未作语义复核。
+- M `window_message_settings.gui`；+100/-0 行；未作语义复核。
+- M `window_military.gui`；+284/-236 行；未作语义复核。
+- M `window_my_realm.gui`；+124/-125 行；未作语义复核。
+- A `window_organization.gui`；+119/-0 行；未作语义复核。
+- A `window_pam_christian_church.gui`；+2408/-0 行；未作语义复核。
+- A `window_personal_beliefs.gui`；+1134/-0 行；未作语义复核。
+- M `window_plan_great_project.gui`；+77/-54 行；未作语义复核。
+- A `window_puppet_selection.gui`；+177/-0 行；未作语义复核。
+- M `window_replace_pillar.gui`；+4/-4 行；未作语义复核。
+- A `window_rite_creation.gui`；+1862/-0 行；未作语义复核。
+- M `window_ruler_designer.gui`；+332/-139 行；未作语义复核。
+- M `window_ruler_designer_load.gui`；+5/-4 行；未作语义复核。
+- M `window_silk_road.gui`；+1/-1 行；未作语义复核。
+- M `window_situation.gui`；+3/-3 行；未作语义复核。
+- M `window_situation_list.gui`；+1/-1 行；未作语义复核。
+- M `window_situation_participation.gui`；+1/-1 行；未作语义复核。
+- M `window_situation_participation_debug.gui`；+1/-1 行；未作语义复核。
+- M `window_struggle_involvement.gui`；+1/-1 行；未作语义复核。
+- M `window_succession_event.gui`；+25/-3 行；未作语义复核。
+- M `window_tax_slot_vassals.gui`；+4/-2 行；未作语义复核。
+- M `window_tgp_dynastic_cycle.gui`；+56/-54 行；未作语义复核。
+- M `window_the_great_steppe.gui`；+3/-7 行；未作语义复核。
+- M `window_title.gui`；+1572/-344 行；未作语义复核。
+- M `window_title_appointment.gui`；+257/-141 行；未作语义复核。
+- M `window_title_claimants.gui`；+1/-1 行；未作语义复核。
+- M `window_title_election.gui`；+33/-192 行；未作语义复核。
+- M `window_title_history.gui`；+1/-1 行；未作语义复核。
+- A `window_title_selector.gui`；+99/-0 行；未作语义复核。
+- M `window_treasury_budget_change.gui`；+11/-0 行；未作语义复核。
+- M `window_war_overview.gui`；+35/-1 行；未作语义复核。
+
+#### game/history/（472 个变化路径）
+
+- M `_characters.info`；+40/-0 行；未作语义复核。
+- M `_provinces.info`；+30/-25 行；未作语义复核。
+- M `characters/afar.txt`；+22/-22 行；未作语义复核。
+- M `characters/afghan.txt`；+52/-52 行；未作语义复核。
+- M `characters/ainu.txt`；+108/-108 行；未作语义复核。
+- M `characters/akan.txt`；+84/-84 行；未作语义复核。
+- M `characters/alan.txt`；+124/-91 行；未作语义复核。
+- M `characters/albanian.txt`；+1/-1 行；未作语义复核。
+- M `characters/amis.txt`；+36/-36 行；未作语义复核。
+- M `characters/andalusian.txt`；+363/-366 行；未作语义复核。
+- M `characters/anglo_saxon.txt`；+836/-447 行；未作语义复核。
+- M `characters/aragonese.txt`；+83/-44 行；未作语义复核。
+- M `characters/armenian.txt`；+707/-644 行；未作语义复核。
+- M `characters/assamese.txt`；+79/-79 行；未作语义复核。
+- M `characters/asturleonese.txt`；+1361/-752 行；未作语义复核。
+- M `characters/avar.txt`；+54/-54 行；未作语义复核。
+- M `characters/bai.txt`；+140/-140 行；未作语义复核。
+- M `characters/balhae.txt`；+152/-152 行；未作语义复核。
+- M `characters/baloch.txt`；+19/-19 行；未作语义复核。
+- M `characters/bashkir.txt`；+42/-42 行；未作语义复核。
+- M `characters/basque.txt`；+719/-556 行；未作语义复核。
+- M `characters/bavarian.txt`；+2185/-889 行；未作语义复核。
+- M `characters/bavlim.txt`；+14/-14 行；未作语义复核。
+- M `characters/bedouin.txt`；+1068/-1053 行；未作语义复核。
+- M `characters/beja.txt`；+83/-83 行；未作语义复核。
+- M `characters/bengali.txt`；+280/-277 行；未作语义复核。
+- M `characters/berber.txt`；+686/-638 行；未作语义复核。
+- M `characters/bobo.txt`；+91/-91 行；未作语义复核。
+- M `characters/bodpa.txt`；+1572/-1566 行；未作语义复核。
+- M `characters/bolghar.txt`；+163/-163 行；未作语义复核。
+- M `characters/bosnian.txt`；+28/-28 行；未作语义复核。
+- M `characters/bouxcuengh.txt`；+7/-7 行；未作语义复核。
+- M `characters/bozo.txt`；+31/-31 行；未作语义复核。
+- M `characters/breton.txt`；+504/-343 行；未作语义复核。
+- M `characters/bugis.txt`；+42/-42 行；未作语义复核。
+- M `characters/bulgarian.txt`；+165/-122 行；未作语义复核。
+- M `characters/burmese.txt`；+117/-117 行；未作语义复核。
+- M `characters/buryat.txt`；+123/-123 行；未作语义复核。
+- M `characters/butr.txt`；+250/-250 行；未作语义复核。
+- M `characters/carantanian.txt`；+1/-1 行；未作语义复核。
+- M `characters/castilian.txt`；+1692/-1314 行；未作语义复核。
+- M `characters/catalan.txt`；+1296/-880 行；未作语义复核。
+- M `characters/cham.txt`；+69/-69 行；未作语义复核。
+- M `characters/cisalpine.txt`；+3330/-2065 行；未作语义复核。
+- M `characters/croatian.txt`；+208/-160 行；未作语义复核。
+- M `characters/cuman.txt`；+306/-303 行；未作语义复核。
+- M `characters/cumbrian.txt`；+61/-57 行；未作语义复核。
+- M `characters/czech.txt`；+270/-203 行；未作语义复核。
+- M `characters/daju.txt`；+30/-30 行；未作语义复核。
+- M `characters/danish.txt`；+282/-191 行；未作语义复核。
+- M `characters/dayak.txt`；+141/-141 行；未作语义复核。
+- M `characters/daylamite.txt`；+152/-145 行；未作语义复核。
+- M `characters/dutch.txt`；+637/-507 行；未作语义复核。
+- M `characters/east_bantu.txt`；+17/-17 行；未作语义复核。
+- M `characters/easteregg_non_developers.txt`；+46/-8 行；未作语义复核。
+- M `characters/eastereggs.txt`；+993/-162 行；未作语义复核。
+- A `characters/ecclesiastical.txt`；+15266/-0 行；未作语义复核。
+- M `characters/edo.txt`；+18/-18 行；未作语义复核。
+- M `characters/egyptian.txt`；+222/-125 行；未作语义复核。
+- M `characters/emishi.txt`；+9/-9 行；未作语义复核。
+- M `characters/english.txt`；+818/-754 行；未作语义复核。
+- M `characters/estonian.txt`；+34/-34 行；未作语义复核。
+- M `characters/ethiopian.txt`；+246/-212 行；未作语义复核。
+- M `characters/ewe.txt`；+30/-30 行；未作语义复核。
+- M `characters/filipino.txt`；+84/-84 行；未作语义复核。
+- M `characters/finnish.txt`；+81/-81 行；未作语义复核。
+- M `characters/franconian.txt`；+4551/-1896 行；未作语义复核。
+- M `characters/frankish.txt`；+347/-320 行；未作语义复核。
+- M `characters/french.txt`；+4094/-3043 行；未作语义复核。
+- M `characters/frisian.txt`；+29/-26 行；未作语义复核。
+- M `characters/gaelic.txt`；+212/-138 行；未作语义复核。
+- M `characters/galician.txt`；+1335/-809 行；未作语义复核。
+- M `characters/georgian.txt`；+333/-206 行；未作语义复核。
+- M `characters/german.txt`；+44/-44 行；未作语义复核。
+- M `characters/greek.txt`；+2765/-1873 行；未作语义复核。
+- M `characters/guan.txt`；+43/-43 行；未作语义复核。
+- M `characters/gujarati.txt`；+82/-82 行；未作语义复核。
+- M `characters/gur.txt`；+97/-97 行；未作语义复核。
+- M `characters/han.txt`；+14304/-14295 行；未作语义复核。
+- M `characters/hausa.txt`；+113/-115 行；未作语义复核。
+- M `characters/hindustani.txt`；+208/-208 行；未作语义复核。
+- M `characters/hmong.txt`；+40/-40 行；未作语义复核。
+- M `characters/hungarian.txt`；+846/-556 行；未作语义复核。
+- M `characters/igbo.txt`；+37/-37 行；未作语义复核。
+- M `characters/irish.txt`；+1483/-1358 行；未作语义复核。
+- M `characters/italian.txt`；+3161/-2398 行；未作语义复核。
+- M `characters/japanese.txt`；+6943/-6903 行；未作语义复核。
+- M `characters/javanese.txt`；+159/-149 行；未作语义复核。
+- M `characters/jurchen.txt`；+200/-200 行；未作语义复核。
+- M `characters/kannada.txt`；+366/-366 行；未作语义复核。
+- M `characters/kanuri.txt`；+51/-51 行；未作语义复核。
+- M `characters/karelian.txt`；+21/-21 行；未作语义复核。
+- M `characters/karluk.txt`；+276/-272 行；未作语义复核。
+- M `characters/kashmiri.txt`；+91/-91 行；未作语义复核。
+- M `characters/kerait.txt`；+49/-49 行；未作语义复核。
+- M `characters/khanty.txt`；+199/-199 行；未作语义复核。
+- M `characters/khazar.txt`；+90/-90 行；未作语义复核。
+- M `characters/khitan.txt`；+264/-264 行；未作语义复核。
+- M `characters/khmer.txt`；+126/-122 行；未作语义复核。
+- M `characters/khwarezmian.txt`；+34/-34 行；未作语义复核。
+- M `characters/kimek.txt`；+116/-116 行；未作语义复核。
+- M `characters/kipchak.txt`；+84/-84 行；未作语义复核。
+- M `characters/kirati.txt`；+81/-81 行；未作语义复核。
+- M `characters/kirghiz.txt`；+143/-143 行；未作语义复核。
+- M `characters/komi.txt`；+42/-42 行；未作语义复核。
+- M `characters/korean.txt`；+1269/-1270 行；未作语义复核。
+- M `characters/kru.txt`；+100/-100 行；未作语义复核。
+- M `characters/kurdish.txt`；+132/-132 行；未作语义复核。
+- M `characters/laktan.txt`；+27/-27 行；未作语义复核。
+- M `characters/latgalian.txt`；+26/-26 行；未作语义复核。
+- M `characters/levantine.txt`；+1109/-923 行；未作语义复核。
+- M `characters/lhomon.txt`；+153/-153 行；未作语义复核。
+- M `characters/lithuanian.txt`；+187/-186 行；未作语义复核。
+- M `characters/lombard.txt`；+1061/-624 行；未作语义复核。
+- M `characters/maghrebi.txt`；+59/-43 行；未作语义复核。
+- M `characters/malay.txt`；+122/-115 行；未作语义复核。
+- M `characters/malinke.txt`；+152/-152 行；未作语义复核。
+- M `characters/maluku.txt`；+134/-134 行；未作语义复核。
+- M `characters/marathi.txt`；+184/-184 行；未作语义复核。
+- M `characters/mari.txt`；+15/-15 行；未作语义复核。
+- M `characters/marka.txt`；+25/-25 行；未作语义复核。
+- M `characters/mel.txt`；+91/-91 行；未作语义复核。
+- M `characters/merya.txt`；+8/-8 行；未作语义复核。
+- M `characters/meshchera.txt`；+24/-21 行；未作语义复核。
+- M `characters/mohe.txt`；+130/-130 行；未作语义复核。
+- M `characters/mon.txt`；+133/-133 行；未作语义复核。
+- M `characters/mongol.txt`；+641/-640 行；未作语义复核。
+- M `characters/mordvin.txt`；+42/-42 行；未作语义复核。
+- M `characters/mossi.txt`；+24/-24 行；未作语义复核。
+- M `characters/muroma.txt`；+13/-13 行；未作语义复核。
+- M `characters/naiman.txt`；+42/-42 行；未作语义复核。
+- M `characters/nepali.txt`；+358/-358 行；未作语义复核。
+- M `characters/nivkh.txt`；+40/-40 行；未作语义复核。
+- M `characters/norman.txt`；+1036/-536 行；未作语义复核。
+- M `characters/norse.txt`；+493/-414 行；未作语义复核。
+- M `characters/norwegian.txt`；+419/-263 行；未作语义复核。
+- M `characters/nubian.txt`；+141/-141 行；未作语义复核。
+- M `characters/nupe.txt`；+64/-64 行；未作语义复核。
+- M `characters/occitan.txt`；+1961/-1518 行；未作语义复核。
+- M `characters/oirat.txt`；+20/-20 行；未作语义复核。
+- M `characters/old_saxon.txt`；+24/-24 行；未作语义复核。
+- M `characters/ongud.txt`；+31/-31 行；未作语义复核。
+- M `characters/oriya.txt`；+251/-251 行；未作语义复核。
+- M `characters/papuan.txt`；+12/-12 行；未作语义复核。
+- M `characters/pecheneg.txt`；+115/-115 行；未作语义复核。
+- M `characters/persian.txt`；+606/-589 行；未作语义复核。
+- M `characters/pictish.txt`；+107/-107 行；未作语义复核。
+- M `characters/polabian.txt`；+92/-86 行；未作语义复核。
+- M `characters/polish.txt`；+634/-462 行；未作语义复核。
+- M `characters/pommeranian.txt`；+121/-118 行；未作语义复核。
+- M `characters/portrait_debug_characters.txt`；+13/-13 行；未作语义复核。
+- M `characters/portuguese.txt`；+1302/-1083 行；未作语义复核。
+- M `characters/prussian.txt`；+22/-22 行；未作语义复核。
+- M `characters/punjabi.txt`；+208/-208 行；未作语义复核。
+- M `characters/qiang.txt`；+30/-30 行；未作语义复核。
+- M `characters/rajput.txt`；+764/-763 行；未作语义复核。
+- M `characters/roman.txt`；+341/-193 行；未作语义复核。
+- M `characters/romanian.txt`；+185/-134 行；未作语义复核。
+- M `characters/russian.txt`；+1220/-863 行；未作语义复核。
+- M `characters/ryukyuan.txt`；+30/-30 行；未作语义复核。
+- A `characters/saints.txt`；+675/-0 行；未作语义复核。
+- M `characters/saka.txt`；+124/-124 行；未作语义复核。
+- M `characters/sami.txt`；+84/-84 行；未作语义复核。
+- M `characters/samoyed.txt`；+39/-39 行；未作语义复核。
+- M `characters/sao.txt`；+95/-95 行；未作语义复核。
+- M `characters/sardinian.txt`；+310/-205 行；未作语义复核。
+- M `characters/saxon.txt`；+3471/-1266 行；未作语义复核。
+- M `characters/scottish.txt`；+779/-738 行；未作语义复核。
+- M `characters/sephardi.txt`；+102/-23 行；未作语义复核。
+- M `characters/serbian.txt`；+207/-156 行；未作语义复核。
+- M `characters/shatuo.txt`；+26/-26 行；未作语义复核。
+- M `characters/shiwei.txt`；+128/-128 行；未作语义复核。
+- M `characters/sicilian.txt`；+179/-163 行；未作语义复核。
+- M `characters/sindhi.txt`；+47/-47 行；未作语义复核。
+- M `characters/sinhala.txt`；+87/-87 行；未作语义复核。
+- M `characters/slovien.txt`；+61/-58 行；未作语义复核。
+- M `characters/sogdian.txt`；+111/-111 行；未作语义复核。
+- M `characters/somali.txt`；+175/-175 行；未作语义复核。
+- M `characters/songhai.txt`；+40/-40 行；未作语义复核。
+- M `characters/soninke.txt`；+108/-108 行；未作语义复核。
+- M `characters/sorko.txt`；+30/-30 行；未作语义复核。
+- M `characters/suebi.txt`；+1/-1 行；未作语义复核。
+- M `characters/sumpa.txt`；+256/-256 行；未作语义复核。
+- M `characters/swabian.txt`；+1930/-767 行；未作语义复核。
+- M `characters/swahili.txt`；+77/-77 行；未作语义复核。
+- M `characters/swedish.txt`；+651/-455 行；未作语义复核。
+- M `characters/tai.txt`；+62/-62 行；未作语义复核。
+- M `characters/tajik.txt`；+164/-162 行；未作语义复核。
+- M `characters/tamil.txt`；+138/-138 行；未作语义复核。
+- M `characters/tangut.txt`；+344/-332 行；未作语义复核。
+- M `characters/telugu.txt`；+153/-153 行；未作语义复核。
+- M `characters/tocharian.txt`；+57/-57 行；未作语义复核。
+- M `characters/toraja.txt`；+20/-20 行；未作语义复核。
+- M `characters/tsangpa.txt`；+174/-174 行；未作语义复核。
+- M `characters/turkish.txt`；+913/-865 行；未作语义复核。
+- M `characters/tuyuhun.txt`；+157/-157 行；未作语义复核。
+- M `characters/uriankhai.txt`；+57/-57 行；未作语义复核。
+- M `characters/uyghur.txt`；+277/-268 行；未作语义复核。
+- M `characters/vepsian.txt`；+29/-29 行；未作语义复核。
+- M `characters/viet.txt`；+119/-119 行；未作语义复核。
+- M `characters/visigothic.txt`；+144/-144 行；未作语义复核。
+- M `characters/welayta.txt`；+90/-90 行；未作语义复核。
+- M `characters/welsh.txt`；+809/-561 行；未作语义复核。
+- M `characters/wolof.txt`；+101/-101 行；未作语义复核。
+- M `characters/yemeni.txt`；+146/-146 行；未作语义复核。
+- M `characters/yi.txt`；+14/-14 行；未作语义复核。
+- M `characters/yoruba.txt`；+45/-45 行；未作语义复核。
+- M `characters/yughur.txt`；+62/-62 行；未作语义复核。
+- M `characters/zaghawa.txt`；+79/-79 行；未作语义复核。
+- M `characters/zhangzhung.txt`；+266/-256 行；未作语义复核。
+- A `cultures/bouxcuengh.txt`；+44/-0 行；未作语义复核。
+- M `cultures/heritage_chinese.txt`；+25/-45 行；未作语义复核。
+- M `cultures/heritage_hmongic.txt`；+21/-35 行；未作语义复核。
+- M `cultures/heritage_mongolic.txt`；+1/-2 行；未作语义复核。
+- M `cultures/heritage_qiangic.txt`；+7/-23 行；未作语义复核。
+- M `cultures/heritage_tai.txt`；+12/-23 行；未作语义复核。
+- M `cultures/heritage_tungusic.txt`；+4/-2 行；未作语义复核。
+- M `cultures/heritage_turkic.txt`；+2/-2 行；未作语义复核。
+- A `cultures/jurchen.txt`；+61/-0 行；未作语义复核。
+- A `cultures/kachin.txt`；+18/-0 行；未作语义复核。
+- A `cultures/khitan.txt`；+55/-0 行；未作语义复核。
+- A `cultures/ongud.txt`；+55/-0 行；未作语义复核。
+- M `cultures/ryukyuan.txt`；+6/-46 行；未作语义复核。
+- A `cultures/shatuo.txt`；+54/-0 行；未作语义复核。
+- M `cultures/tangut.txt`；+2/-0 行；未作语义复核。
+- A `cultures/tuyuhun.txt`；+38/-0 行；未作语义复核。
+- M `cultures/uyghur.txt`；+29/-9 行；未作语义复核。
+- A `cultures/yughur.txt`；+55/-0 行；未作语义复核。
+- A `faiths/00_abrahimic.txt`；+75/-0 行；未作语义复核。
+- A `faiths/00_biliku.txt`；+18/-0 行；未作语义复核。
+- A `faiths/00_buddhism.txt`；+81/-0 行；未作语义复核。
+- A `faiths/00_christianity.txt`；+634/-0 行；未作语义复核。
+- A `faiths/00_dualism.txt`；+45/-0 行；未作语义复核。
+- A `faiths/00_eastern_misc.txt`；+46/-0 行；未作语义复核。
+- A `faiths/00_hinduism.txt`；+73/-0 行；未作语义复核。
+- A `faiths/00_islam.txt`；+113/-0 行；未作语义复核。
+- A `faiths/00_mundhum.txt`；+20/-0 行；未作语义复核。
+- A `faiths/00_pagan.txt`；+327/-0 行；未作语义复核。
+- A `faiths/00_qiangic.txt`；+21/-0 行；未作语义复核。
+- A `faiths/00_tani.txt`；+21/-0 行；未作语义复核。
+- A `faiths/00_taoism.txt`；+40/-0 行；未作语义复核。
+- A `faiths/00_waaqism.txt`；+17/-0 行；未作语义复核。
+- A `faiths/00_west_african.txt`；+17/-0 行；未作语义复核。
+- A `faiths/00_zoroastrianism.txt`；+97/-0 行；未作语义复核。
+- A `faiths/_faith_history.info`；+91/-0 行；未作语义复核。
+- M `provinces/e_japan.txt`；+86/-86 行；未作语义复核。
+- M `provinces/e_kambuja.txt`；+40/-40 行；未作语义复核。
+- M `provinces/h_china.txt`；+963/-844 行；未作语义复核。
+- M `provinces/k_abyssinia.txt`；+31/-28 行；未作语义复核。
+- M `provinces/k_adal.txt`；+23/-23 行；未作语义复核。
+- M `provinces/k_africa.txt`；+59/-56 行；未作语义复核。
+- M `provinces/k_ajuraan.txt`；+28/-28 行；未作语义复核。
+- M `provinces/k_akan.txt`；+2/-2 行；未作语义复核。
+- M `provinces/k_amdo.txt`；+376/-365 行；未作语义复核。
+- M `provinces/k_amur.txt`；+23/-26 行；未作语义复核。
+- M `provinces/k_anatolia.txt`；+587/-416 行；未作语义复核。
+- M `provinces/k_anbiya.txt`；+72/-72 行；未作语义复核。
+- M `provinces/k_andalusia.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_andhra.txt`；+67/-72 行；未作语义复核。
+- M `provinces/k_angara.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_aquitaine.txt`；+199/-87 行；未作语义复核。
+- M `provinces/k_arabia.txt`；+43/-43 行；未作语义复核。
+- M `provinces/k_aragon.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_armenia.txt`；+89/-79 行；未作语义复核。
+- M `provinces/k_badajoz.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_bale.txt`；+11/-11 行；未作语义复核。
+- M `provinces/k_balhae.txt`；+143/-105 行；未作语义复核。
+- M `provinces/k_bashkiria.txt`；+37/-37 行；未作语义复核。
+- M `provinces/k_bavaria.txt`；+217/-87 行；未作语义复核。
+- M `provinces/k_bengal.txt`；+66/-66 行；未作语义复核。
+- M `provinces/k_bihar.txt`；+52/-52 行；未作语义复核。
+- M `provinces/k_bjarmaland.txt`；+15/-15 行；未作语义复核。
+- M `provinces/k_blemmyia.txt`；+39/-39 行；未作语义复核。
+- M `provinces/k_bohemia.txt`；+97/-51 行；未作语义复核。
+- M `provinces/k_borgu.txt`；+6/-6 行；未作语义复核。
+- M `provinces/k_borneo.txt`；+29/-29 行；未作语义复核。
+- M `provinces/k_brittany.txt`；+32/-8 行；未作语义复核。
+- M `provinces/k_bulgaria.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_burgundy.txt`；+103/-38 行；未作语义复核。
+- M `provinces/k_buryatia.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_caspian_steppe.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_castille.txt`；+53/-15 行；未作语义复核。
+- M `provinces/k_caucasus.txt`；+58/-42 行；未作语义复核。
+- M `provinces/k_croatia.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_cuman.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_cyprus.txt`；+24/-12 行；未作语义复核。
+- M `provinces/k_dacia.txt`；+128/-92 行；未作语义复核。
+- M `provinces/k_dali.txt`；+25/-25 行；未作语义复核。
+- M `provinces/k_damot.txt`；+14/-14 行；未作语义复核。
+- M `provinces/k_darfur.txt`；+193/-193 行；未作语义复核。
+- M `provinces/k_daylam.txt`；+58/-58 行；未作语义复核。
+- M `provinces/k_delhi.txt`；+46/-47 行；未作语义复核。
+- M `provinces/k_denmark.txt`；+102/-63 行；未作语义复核。
+- M `provinces/k_dvaravati.txt`；+27/-27 行；未作语义复核。
+- M `provinces/k_dzungaria.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_east_francia.txt`；文本未解码；行数未计算；已复核关键定义/差异。
+- M `provinces/k_egypt.txt`；+43/-43 行；未作语义复核。
+- M `provinces/k_england.txt`；+223/-79 行；未作语义复核。
+- M `provinces/k_epirus.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_esthonia.txt`；+85/-85 行；未作语义复核。
+- M `provinces/k_finland.txt`；+212/-213 行；未作语义复核。
+- M `provinces/k_france.txt`；+256/-94 行；未作语义复核。
+- M `provinces/k_frisia.txt`；+60/-27 行；未作语义复核。
+- M `provinces/k_galicia-volhynia.txt`；+104/-68 行；未作语义复核。
+- M `provinces/k_georgia.txt`；+309/-222 行；未作语义复核。
+- M `provinces/k_ghana.txt`；+197/-197 行；未作语义复核。
+- M `provinces/k_gobi.txt`；+18/-18 行；未作语义复核。
+- M `provinces/k_gondwana.txt`；+34/-34 行；未作语义复核。
+- M `provinces/k_goryeo.txt`；+91/-82 行；未作语义复核。
+- M `provinces/k_guge.txt`；+269/-258 行；未作语义复核。
+- M `provinces/k_guinea.txt`；+4/-4 行；未作语义复核。
+- M `provinces/k_gujarat.txt`；+51/-52 行；未作语义复核。
+- M `provinces/k_gur.txt`；+3/-3 行；未作语义复核。
+- M `provinces/k_gurma.txt`；+99/-99 行；未作语义复核。
+- M `provinces/k_gyalrong.txt`；+298/-283 行；未作语义复核。
+- M `provinces/k_hausaland.txt`；+31/-31 行；未作语义复核。
+- M `provinces/k_hellas.txt`；+31/-8 行；未作语义复核。
+- M `provinces/k_himalaya.txt`；+50/-50 行；未作语义复核。
+- M `provinces/k_hujung_medini.txt`；+13/-15 行；未作语义复核。
+- M `provinces/k_hungary.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_igbo-benue.txt`；+10/-10 行；未作语义复核。
+- M `provinces/k_ireland.txt`；+82/-74 行；未作语义复核。
+- M `provinces/k_italy.txt`；+159/-64 行；未作语义复核。
+- M `provinces/k_jazira.txt`；+160/-137 行；未作语义复核。
+- M `provinces/k_jenne.txt`；+77/-77 行；未作语义复核。
+- M `provinces/k_jerusalem.txt`；+56/-50 行；未作语义复核。
+- M `provinces/k_kabulistan.txt`；+10/-10 行；未作语义复核。
+- M `provinces/k_kamarupa.txt`；+34/-34 行；未作语义复核。
+- M `provinces/k_kanem.txt`；+97/-97 行；未作语义复核。
+- M `provinces/k_karnata.txt`；+50/-73 行；未作语义复核。
+- M `provinces/k_kashmir.txt`；+23/-23 行；未作语义复核。
+- M `provinces/k_khakassia.txt`；+16/-16 行；未作语义复核。
+- M `provinces/k_kham.txt`；+426/-404 行；未作语义复核。
+- M `provinces/k_khitan.txt`；+80/-80 行；未作语义复核。
+- M `provinces/k_khorasan.txt`；+70/-70 行；未作语义复核。
+- M `provinces/k_khotan.txt`；+180/-180 行；未作语义复核。
+- M `provinces/k_kipchak.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_kong.txt`；+1/-1 行；未作语义复核。
+- M `provinces/k_kosala.txt`；+65/-65 行；未作语义复核。
+- M `provinces/k_krete.txt`；+26/-8 行；未作语义复核。
+- M `provinces/k_lanka.txt`；+4/-4 行；未作语义复核。
+- M `provinces/k_leon.txt`；+45/-7 行；未作语义复核。
+- M `provinces/k_lhomon.txt`；+18/-18 行；未作语义复核。
+- M `provinces/k_lithuania.txt`；+42/-42 行；未作语义复核。
+- M `provinces/k_lotharingia.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_luzhen.txt`；+73/-72 行；未作语义复核。
+- M `provinces/k_maghreb.txt`；+89/-89 行；未作语义复核。
+- M `provinces/k_maharastra.txt`；+72/-85 行；未作语义复核。
+- M `provinces/k_makran.txt`；+85/-85 行；未作语义复核。
+- M `provinces/k_malayadvipa.txt`；+26/-26 行；未作语义复核。
+- M `provinces/k_mali.txt`；+128/-128 行；未作语义复核。
+- M `provinces/k_maluku.txt`；+16/-16 行；未作语义复核。
+- M `provinces/k_malwa.txt`；+106/-111 行；未作语义复核。
+- M `provinces/k_maryul.txt`；+304/-296 行；未作语义复核。
+- M `provinces/k_mesopotamia.txt`；+145/-141 行；未作语义复核。
+- M `provinces/k_moldavia.txt`；+116/-83 行；未作语义复核。
+- M `provinces/k_mongolia.txt`；+37/-37 行；未作语义复核。
+- M `provinces/k_mordvinia.txt`；+25/-25 行；未作语义复核。
+- M `provinces/k_naimania.txt`；+53/-53 行；未作语义复核。
+- M `provinces/k_navarra.txt`；+42/-9 行；未作语义复核。
+- M `provinces/k_nikaea.txt`；+467/-329 行；未作语义复核。
+- M `provinces/k_norway.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_novgorod.txt`；+53/-38 行；未作语义复核。
+- M `provinces/k_nubia.txt`；+24/-24 行；未作语义复核。
+- M `provinces/k_ob.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_oghuz_il.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_opolye.txt`；+70/-52 行；未作语义复核。
+- M `provinces/k_orissa.txt`；+63/-69 行；未作语义复核。
+- M `provinces/k_pagan.txt`；+138/-123 行；未作语义复核。
+- M `provinces/k_permia.txt`；+11/-11 行；未作语义复核。
+- M `provinces/k_persia.txt`；+153/-164 行；未作语义复核。
+- M `provinces/k_philippines.txt`；+30/-30 行；未作语义复核。
+- M `provinces/k_poland.txt`；+294/-179 行；未作语义复核。
+- M `provinces/k_pomerania.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_pontic_steppe.txt`；+75/-72 行；未作语义复核。
+- M `provinces/k_pontus.txt`；+551/-380 行；未作语义复核。
+- M `provinces/k_punjab.txt`；+223/-223 行；未作语义复核。
+- M `provinces/k_qara_dala.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_rajputana.txt`；+63/-65 行；未作语义复核。
+- M `provinces/k_romagna.txt`；+101/-32 行；未作语义复核。
+- M `provinces/k_ruthenia.txt`；+169/-106 行；未作语义复核。
+- M `provinces/k_sahara.txt`；+26/-26 行；未作语义复核。
+- M `provinces/k_sakhalin.txt`；+3/-3 行；未作语义复核。
+- M `provinces/k_sao.txt`；+48/-48 行；未作语义复核。
+- M `provinces/k_sapmi.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_sardinia.txt`；+44/-14 行；未作语义复核。
+- M `provinces/k_saryarka.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_scotland.txt`；+171/-64 行；未作语义复核。
+- M `provinces/k_serbia.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_shiwei.txt`；+33/-33 行；未作语义复核。
+- M `provinces/k_sibir.txt`；+12/-12 行；未作语义复核。
+- M `provinces/k_sicily.txt`；+102/-53 行；未作语义复核。
+- M `provinces/k_sindh.txt`；+109/-109 行；未作语义复核。
+- M `provinces/k_songhay.txt`；+70/-70 行；未作语义复核。
+- M `provinces/k_spanish_galicia.txt`；+97/-49 行；未作语义复核。
+- M `provinces/k_sulawesi.txt`；+15/-15 行；未作语义复核。
+- M `provinces/k_sweden.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_syr_darya.txt`；+62/-62 行；未作语义复核。
+- M `provinces/k_syria.txt`；+209/-162 行；未作语义复核。
+- M `provinces/k_tahert.txt`；+75/-75 行；未作语义复核。
+- M `provinces/k_takrur.txt`；+81/-81 行；未作语义复核。
+- M `provinces/k_tamilakam.txt`；+182/-197 行；未作语义复核。
+- M `provinces/k_telingana.txt`；+33/-33 行；未作语义复核。
+- M `provinces/k_thessalonika.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_transoxiana.txt`；+121/-121 行；未作语义复核。
+- M `provinces/k_tsang.txt`；+76/-69 行；未作语义复核。
+- M `provinces/k_tuva.txt`；+11/-11 行；未作语义复核。
+- M `provinces/k_u.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_valencia.txt`；+82/-82 行；未作语义复核。
+- M `provinces/k_venice.txt`；+8/-2 行；未作语义复核。
+- M `provinces/k_viet.txt`；+11/-11 行；未作语义复核。
+- M `provinces/k_volga_bulgaria.txt`；文本未解码；行数未计算；未作语义复核。
+- M `provinces/k_wales.txt`；+101/-25 行；未作语义复核。
+- M `provinces/k_white_rus.txt`；+116/-65 行；未作语义复核。
+- M `provinces/k_yavakadvipa.txt`；+11/-11 行；未作语义复核。
+- M `provinces/k_yemen.txt`；+16/-16 行；未作语义复核。
+- M `provinces/k_yorubaland.txt`；+3/-3 行；未作语义复核。
+- M `provinces/k_yugra.txt`；+12/-12 行；未作语义复核。
+- M `provinces/k_zanj.txt`；+27/-27 行；未作语义复核。
+- M `provinces/k_zhetysu.txt`；+93/-93 行；未作语义复核。
+- A `situations/pam_the_christian_church_history.txt`；+62/-0 行；已复核关键定义/差异。
+- M `titles/00_other_titles.txt`；+578/-126 行；未作语义复核。
+- M `titles/01_admin_titles.txt`；+0/-349 行；未作语义复核。
+- M `titles/01_admin_titles_tgp.txt`；+4/-4124 行；未作语义复核。
+- M `titles/01_laamp_titles.txt`；+82/-236 行；未作语义复核。
+- M `titles/02_japan_noble_family.txt`；+12/-1351 行；未作语义复核。
+- M `titles/02_korea_noble_family.txt`；+5/-532 行；未作语义复核。
+- M `titles/02_other_noble_family.txt`；+11/-521 行；未作语义复核。
+- A `titles/ce3/00_ecclesiastical_titles.txt`；+4515/-0 行；未作语义复核。
+- M `titles/e_china.txt`；+14/-131 行；未作语义复核。
+- M `titles/e_goryeo.txt`；+0/-6 行；未作语义复核。
+- M `titles/e_japan.txt`；+31/-19 行；未作语义复核。
+- M `titles/e_khmer.txt`；+26/-26 行；未作语义复核。
+- M `titles/k_amur.txt`；+5/-5 行；未作语义复核。
+- M `titles/k_andalusia.txt`；+1/-1 行；未作语义复核。
+- M `titles/k_aquitaine.txt`；+22/-22 行；未作语义复核。
+- M `titles/k_aragon.txt`；文本未解码；行数未计算；未作语义复核。
+- M `titles/k_badajoz.txt`；+9/-9 行；未作语义复核。
+- M `titles/k_balhae.txt`；+38/-31 行；未作语义复核。
+- M `titles/k_bavaria.txt`；文本未解码；行数未计算；未作语义复核。
+- M `titles/k_bohemia.txt`；+1/-1 行；未作语义复核。
+- M `titles/k_borneo.txt`；+1/-1 行；未作语义复核。
+- M `titles/k_burgundy.txt`；文本未解码；行数未计算；未作语义复核。
+- M `titles/k_croatia.txt`；+1/-1 行；未作语义复核。
+- M `titles/k_denmark.txt`；文本未解码；行数未计算；未作语义复核。
+- M `titles/k_dvaravati.txt`；+5/-5 行；未作语义复核。
+- M `titles/k_east_francia.txt`；文本未解码；行数未计算；未作语义复核。
+- M `titles/k_egypt.txt`；+7/-3 行；未作语义复核。
+- M `titles/k_england.txt`；文本未解码；行数未计算；未作语义复核。
+- M `titles/k_france.txt`；文本未解码；行数未计算；未作语义复核。
+- M `titles/k_frisia.txt`；+83/-81 行；未作语义复核。
+- M `titles/k_hungary.txt`；+3/-3 行；未作语义复核。
+- M `titles/k_italy.txt`；+249/-284 行；未作语义复核。
+- M `titles/k_jerusalem.txt`；+3/-3 行；未作语义复核。
+- M `titles/k_khitan.txt`；+3/-0 行；未作语义复核。
+- M `titles/k_lotharingia.txt`；文本未解码；行数未计算；未作语义复核。
+- M `titles/k_luzhen.txt`；+24/-21 行；未作语义复核。
+- M `titles/k_naimania.txt`；+339/-245 行；未作语义复核。
+- M `titles/k_norway.txt`；文本未解码；行数未计算；已复核关键定义/差异。
+- M `titles/k_otuken.txt`；+0/-1024 行；未作语义复核。
+- M `titles/k_poland.txt`；+10/-7 行；未作语义复核。
+- M `titles/k_pomerania.txt`；+17/-11 行；未作语义复核。
+- M `titles/k_romagna.txt`；文本未解码；行数未计算；未作语义复核。
+- M `titles/k_sardinia.txt`；+2/-2 行；未作语义复核。
+- M `titles/k_sicily.txt`；+13/-12 行；未作语义复核。
+- M `titles/k_spanish_galicia.txt`；+11/-10 行；未作语义复核。
+- M `titles/k_sweden.txt`；文本未解码；行数未计算；已复核关键定义/差异。
+- M `titles/k_syria.txt`；+1/-1 行；未作语义复核。
+- M `titles/k_thessalonika.txt`；+1/-1 行；未作语义复核。
+- M `titles/k_transoxiana.txt`；+8/-8 行；未作语义复核。
+- M `titles/k_valencia.txt`；+18/-19 行；未作语义复核。
+- M `titles/k_xia.txt`；+3/-1 行；未作语义复核。
+
+## 附录 B: 生成信息
+
+- **报告生成时间**: 2026-10-01T00:02:24+08:00
+
+- **分析模型**: Codex（基于 GPT-6；完整模型名称及版本未提供）
+
+- **协作人**: XenoAmess
+
+- **深度分析文件数**: 7727
+
+- **LLM复核文件数**: 76
+
+- **证据扫描时间**: 2026-09-30T22:47:58+08:00（原扫描时间原样记录；最终报告时间另见上项）
+
+- **使用的 skill**: .sisyphus/skills/ck3_version_analyzer/SKILL.md
+
+- **方法**: 全量 SHA-256 比较、全部可解码变化文本差异提取、当前 Agent 按主题继续复核旧/新源码和相关入口；未启动游戏。
+
+- **覆盖声明**: 本报告为重点机制的详细静态分析，剩余文本仅有自动差异证据。无代理人协作、无外部更新公告核验、无实机/存档/性能测试。
+
+- **分卷整理时间**: 2026-10-01T00:57:36+08:00
+
+- **分卷编号**: 4/4
+
+- **计数口径**: 标题、正文、代码、标点、空格、换行及 Markdown 标记均计入；非 BMP 字符按两个 UTF-16 单元计，采用保守计数。
+
+- **分卷全字符计数**: 71644
+

@@ -1,0 +1,45 @@
+{
+  "source_file": "Crusader_Kings_III_v1.19.0.6_20260604_vs_v1.20.0_极详细对比分析报告_B站专栏版.md",
+  "source_sha256": "0c413e17ee7da4a411afe64d5211231d5fe05c4434e9809d1d0168fb20c7d92e",
+  "split_generated_at": "2026-10-01T00:57:36+08:00",
+  "limit": 100000,
+  "count_method": "All UTF-16 code units, including Markdown, whitespace and code",
+  "source_body_reconstructed_exactly": true,
+  "code_blocks_preserved_exactly": 113,
+  "inventory_entries_preserved_exactly": 2515,
+  "global_llm_reviewed_files_unchanged": 76,
+  "parts": [
+    {
+      "part": 1,
+      "title": "宗教与教会政治",
+      "file": "Crusader_Kings_III_v1.19.0.6_20260604_vs_v1.20.0_极详细对比分析报告_B站专栏版_第01篇_宗教与教会政治.md",
+      "characters": 59855,
+      "utf16_units": 59855,
+      "headroom": 40145
+    },
+    {
+      "part": 2,
+      "title": "其余机制与统计附录",
+      "file": "Crusader_Kings_III_v1.19.0.6_20260604_vs_v1.20.0_极详细对比分析报告_B站专栏版_第02篇_其余机制与统计附录.md",
+      "characters": 59338,
+      "utf16_units": 59338,
+      "headroom": 40662
+    },
+    {
+      "part": 3,
+      "title": "通用脚本变化索引",
+      "file": "Crusader_Kings_III_v1.19.0.6_20260604_vs_v1.20.0_极详细对比分析报告_B站专栏版_第03篇_通用脚本变化索引.md",
+      "characters": 78774,
+      "utf16_units": 78774,
+      "headroom": 21226
+    },
+    {
+      "part": 4,
+      "title": "事件界面与历史变化索引",
+      "file": "Crusader_Kings_III_v1.19.0.6_20260604_vs_v1.20.0_极详细对比分析报告_B站专栏版_第04篇_事件界面与历史变化索引.md",
+      "characters": 71644,
+      "utf16_units": 71644,
+      "headroom": 28356
+    }
+  ]
+}
